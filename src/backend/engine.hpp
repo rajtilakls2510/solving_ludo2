@@ -8,6 +8,7 @@
 #include <sstream>
 #include <random>
 #include <cstring>
+#include <tuple>
 
 class Block {
 public:
@@ -47,8 +48,12 @@ using StatePtr = std::shared_ptr<State>;
 class Move {
 public:
     int pawn;       // Pawn that is being moved
-    short current_position;     // Current position of the pawn
+    short current_pos;     // Current position of the pawn
     short destination;          // Destination of the pawn
+
+    Move(int pawn, short current_pos, short destination) : pawn(pawn), current_pos(current_pos), destination(destination) {};
+
+    std::string repr();
 };
 
 using MovePtr = std::shared_ptr<Move>;
@@ -77,6 +82,21 @@ private:
     std::mt19937 gen;
 };
 
+class NextPossiblePawns {
+public:
+    int* pawns;
+    short* current_pos;
+    short n;
+
+    NextPossiblePawns();
+    ~NextPossiblePawns();
+
+    // Adds a pawn and it's position
+    void add_pawn_pos(int pawn, short pos);
+
+    std::string repr();
+};
+
 class LudoModel {
 private:
     short* stars;   // Array that defines the positions of stars
@@ -85,14 +105,42 @@ private:
     short* colour_bases;    // Base positions for each colour
     std::shared_ptr<GameConfig> config;    // Config object of the game
 
+    // Moves a single pawn from current_pos to destination in the state provided
+    void move_single_pawn(StatePtr state, short player, int pawn, short current_pos, short destination);
+
+    // Checks whether a pawn exists in an aggregate
+    bool find_pawn_in_aggregate(int pawns, int pawn);   
+
+    // Checks whether two aggregates contain the same pawns
+    bool check_pawns_same(int pawns1, int pawns2); 
+
+    // Replaces a pawn with another in an aggregate and returns the new aggregate. 
+    // Note: If pawn_to_replace is not present in pawns, aggregate is not changed
+    int replace_pawn_in_aggregate(int pawns, int pawn_to_replace, int pawn_to_be_replaced_with);
+
+    // Adds a block to state
+    void add_block(StatePtr state, int pawns, short pos, bool rigid);
+
+    // Removes a block from an index
+    void remove_block(StatePtr state, short index);
+
+    // Finds whether a block is present at a pos for a given player
+    bool find_block_in_position(StatePtr state, short player, short pos);
+
+    // Get all possible pawns that can be moved forward at this state
+    std::shared_ptr<NextPossiblePawns> find_next_possible_pawns(StatePtr state);
+
+    // Given a pawn, it's current position and a dice throw, returns whether the pawn can be moved forward and to what destination
+    std::tuple<bool, short> validate_pawn_move(StatePtr state, short throw_, short current_pos, int pawn);
+
 public:
     std::shared_ptr<ThrowGenerator> throw_gen;
 
     LudoModel(std::shared_ptr<GameConfig> config);
     ~LudoModel();
 
-    std::vector<StatePtr> generate_next_states(StatePtr state, MovePtr move);   // Returns all next states given current state and move
-    std::vector<MovePtr> all_possible_moves(StatePtr state);    // Returns all possible moves for a given state 
+    std::vector<StatePtr> generate_next_states(StatePtr state, Move move);   // Returns all next states given current state and move
+    std::vector<Move> all_possible_moves(StatePtr state);    // Returns all possible moves for a given state
     StatePtr get_initial_state();       // Returns the initial state that the game starts in
 
 };
@@ -107,8 +155,6 @@ public:
 
     Ludo(std::shared_ptr<GameConfig> config) {
         this->model = std::make_shared<LudoModel>(config);
-        state = model->get_initial_state();
-        winner = -1;
     }
 
     void reset();
