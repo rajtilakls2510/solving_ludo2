@@ -87,27 +87,28 @@ State::State(short n_players) {
     this->n_players = n_players;
     game_over = false;
     current_player = 0;
-    num_more_moves = 0;
+    num_more_throws = 0;
     dice_roll = 0;
     last_move_id = 0;
     player_pos_pawn = new int[n_players * 93]();
     num_blocks = 0;
     // Note: 'blocks' will be initialized automatically
-    previous_pawn_pos = 0;
+    previous_state = nullptr;
 }
 
 StatePtr State::copy() {
     StatePtr new_state = std::make_shared<State>(n_players);
     new_state->game_over = this->game_over;
     new_state->current_player = this->current_player;
-    new_state->num_more_moves = this->num_more_moves;
+    new_state->num_more_throws = this->num_more_throws;
     new_state->dice_roll = this->dice_roll;
     new_state->last_move_id = this->last_move_id;
     std::memcpy(new_state->player_pos_pawn, this->player_pos_pawn, n_players * 93 * sizeof(int));
     new_state->num_blocks = this->num_blocks;
     for (short block_idx = 0; block_idx < new_state->num_blocks; block_idx++)
         new_state->blocks[block_idx] = this->blocks[block_idx];
-    new_state->previous_pawn_pos = this->previous_pawn_pos;
+    if (this->previous_state)
+        new_state->previous_state = this->previous_state;
     return new_state;
 }
 
@@ -134,7 +135,7 @@ std::string State::repr() {
     ss << "\tn_players : " << n_players << ", \n";
     ss << "\tgame_over : " << std::boolalpha << game_over << ", \n";
     ss << "\tcurrent_player : " << current_player << ", \n";
-    ss << "\tnum_more_moves : " << num_more_moves << ", \n";
+    ss << "\tnum_more_throws : " << num_more_throws << ", \n";
     ss << "\tdice_roll : " << dice_roll << ", \n";
     ss << "\tlast_move_id : " << last_move_id << ", \n";
     for (short player = 0; player < n_players; player++) {
@@ -167,21 +168,60 @@ std::string State::repr() {
     }
     ss << "\t], \n";
 
-    int ppp = previous_pawn_pos;
-    ss << "\tprevious_pawn_pos : [ \n";
-    while (ppp != 0) {
-        int pos = ppp % 93;
-        ppp /= 93;
-        int pawn = pawn % 17;
-        ppp /= 17;
 
-        ss << "\t\t{ pawn : " << pawn_name[pawn] << " , pos : " << pos_name[pos] << " },\n";   
+    ss << "\tprevious_state :  {\n";
+    if (this->previous_state) {
+        for (short player = 0; player < n_players; player++) {
+            ss << "\t\tPlayer " << player << " : {\n\t\t\t";
+
+            for (short pos = 1; pos < 93; pos++) {
+                int p = this->previous_state->player_pos_pawn[player * 93 + pos];
+                while (p != 0) {
+                    ss << pawn_name[p % 17] << " : " << pos_name[pos] << ", ";
+                    p /= 17;
+                }
+            }
+            ss << "\n\t\t}, \n";
+        }
+        ss << "\t\tblocks: [\n";
+        for (short block_idx = 0; block_idx < this->previous_state->num_blocks; block_idx++) {
+            
+            ss << "\t\t\t{ ";
+            ss << "pawns : [ ";
+            short p = this->previous_state->blocks[block_idx].pawns;
+            while (p != 0) {
+                ss << pawn_name[p% 17] << ", ";
+                p /= 17;
+            }
+            ss << "], ";
+            ss << "pos : " << pos_name[this->previous_state->blocks[block_idx].pos] << ", rigid: " << std::boolalpha << this->previous_state->blocks[block_idx].rigid;
+            ss << " },\n";
+        }
+        ss << "\t\t], \n";
+
     }
-    ss << "\t]\n";
 
+    ss << "\t}\n";
 
     ss << "}\n";
     return ss.str();
+}
+
+void State::save() {
+    this->previous_state = std::make_shared<State>(this->n_players); 
+    std::memcpy(this->previous_state->player_pos_pawn, this->player_pos_pawn, this->n_players * 93 * sizeof(int));
+    this->previous_state->num_blocks = this->num_blocks;
+    for (short bi = 0; bi < this->num_blocks; bi++)
+        this->previous_state->blocks[bi] = this->blocks[bi];
+}
+
+void State::revert() {
+    if(this->previous_state) {
+        std::memcpy(this->player_pos_pawn, this->previous_state->player_pos_pawn, this->n_players * 93 * sizeof(int));
+        this->num_blocks = this->previous_state->num_blocks;
+        for (short bi = 0; bi < this->previous_state->num_blocks; bi++)
+            this->blocks[bi] = this->previous_state->blocks[bi];
+    }
 }
 
 State::~State() {
@@ -327,12 +367,12 @@ StatePtr LudoModel::get_initial_state() {
     state->game_over = false;
     state->current_player = 0;
 
-    int throw_ = throw_gen->get_throw();
+    int throw_ = this->throw_gen->get_throw();
     state->dice_roll = throw_;
     
-    state->num_more_moves = 0;
+    state->num_more_throws = 0;
     if (throw_ == 6)
-        state->num_more_moves++;
+        state->num_more_throws++;
     
     state->last_move_id = 0;
 
@@ -344,10 +384,7 @@ StatePtr LudoModel::get_initial_state() {
     }
 
     state->num_blocks = 0;
-    state->previous_pawn_pos = 0;
-    
-    // std::cout << this->find_next_possible_pawns(state)->repr();
-
+    state->save();
     return state;
 }
 
@@ -569,9 +606,294 @@ std::tuple<bool, short> LudoModel::validate_pawn_move(StatePtr state, short thro
     return std::make_tuple(true, destination);
 }
 
+StatePtr LudoModel::move_pawn(StatePtr state, short throw_, short current_pos, int pawn) {
+    state = state->copy();
+    short current_player = state->current_player;
+    
+    // If single pawn, find next position and update it
+    if (pawn <= 16) {
+        short colour = (pawn - 1) / 4 + 1;
+
+        // Finding track index of the pawn's position
+        short index = -6;
+        for (short track_idx = 0; track_idx < 57; track_idx++)
+            if (this->colour_tracks[colour * 57 + track_idx] == current_pos)
+                index = track_idx;
+        short destination = this->colour_tracks[colour * 57 + index + throw_];
+
+        this->move_single_pawn(state, state->current_player, pawn, current_pos, destination);
+
+        // If pawn is in a block, dissolve the block and leave the other pawn in old position
+        for (short block_idx = 0; block_idx < state->num_blocks; block_idx++) 
+            if (this->find_pawn_in_aggregate(state->blocks[block_idx].pawns, pawn)) {
+                this->remove_block(state, block_idx);
+                break;
+            }
+        
+        // If at current positions two pawns are present and current position is not base star, block them up (non-rigid)
+        bool block_at_current_pos = this->find_block_in_position(state, current_player, current_pos);
+        if (state->player_pos_pawn[current_player * 93 + current_pos] > 16 && this->stars[current_pos] != 2 && !block_at_current_pos) {
+            int new_pawns = 0;
+            int p = state->player_pos_pawn[current_player * 93 + current_pos];
+            short i = 0;
+            while (i < 2) {
+                new_pawns = new_pawns * 17 + (p % 17);
+                p /= 17;
+                i++;
+            }
+            this->add_block(state, new_pawns, current_pos, false);
+        }
+
+        // If another single pawn of other player is present at destination (except stars), capture it by sending it back to its base
+        if (this->stars[destination] == 0) {
+            for (short player = 0; player < state->n_players; player++) 
+                if (player != current_player) {
+                    int pawn_to_capture = 0;
+                    int p = state->player_pos_pawn[player * 93 + destination];
+                    while (p != 0) {
+                        // Check whether other player's pawn is in a block. If not in block, capture it.
+                        bool in_block = false;
+                        for (short block_idx = 0; block_idx < state->num_blocks; block_idx++) {
+                            if (state->blocks[block_idx].pos == destination && this->find_pawn_in_aggregate(state->blocks[block_idx].pawns, p % 17)) {
+                                in_block = true;
+                                break;
+                            }
+                        }
+                        if (!in_block) {
+                            pawn_to_capture = p % 17;
+                            break;  // Breaking, as one pawn can capture only one other pawn 
+                        }
+                        p /= 17;
+                    }
+                    if (pawn_to_capture != 0) {
+                        this->move_single_pawn(state, player, pawn_to_capture, destination, pawn_to_capture);
+                        state->num_more_throws += 1;
+                        break;  // Breaking, as capturing is performed only on one player
+                    }
+                }
+        }
+
+        // If another single pawn of current_player is present at destination, block it with other pawn by default except the base star positions and finale position
+        bool block_at_destination = this->find_block_in_position(state, current_player, destination);
+        if (this->stars[destination] < 2 && this->final_pos[destination] == 0 && state->player_pos_pawn[current_player * 93 + destination] > 16 && !block_at_destination) 
+            this->add_block(state, state->player_pos_pawn[current_player * 93 + destination], destination, false);
+
+        // If destination is finale and not all other pawns in finale position, give another move
+        if (this->final_pos[destination] == 1)
+            for (short pos = 0; pos < 93; pos++)
+                if (pos != destination && state->player_pos_pawn[current_player * 93 + destination] > 0) {
+                    state->num_more_throws += 1;
+                    break;
+                }
+    }
+    else {
+        short colour = (pawn % 17 - 1) / 4 + 1;
+        short index = -6;
+        for (short track_idx = 0; track_idx < 57; track_idx++)
+            if(this->colour_tracks[colour * 57 + track_idx] == current_pos) {
+                index = track_idx;
+                break;
+            }
+        short destination = this->colour_tracks[colour * 57 + index + throw_ / 2];
+
+        // If moving out of a base star, check whether the block is present or not. Make a block if absent.
+        short block_idx;
+        if (this->stars[current_pos] == 2) {
+            this->add_block(state, pawn, current_pos, false);
+            block_idx = state->num_blocks - 1;
+        } 
+        else {
+            block_idx = -1;
+
+            // Find the block which has to be moved
+            for (short bi = 0; bi < state->num_blocks; bi++)
+                if (this->check_pawns_same(state->blocks[bi].pawns, pawn)) {
+                    block_idx = bi;
+                    break;
+                }
+            
+            // If pawn doesn't match with any block, it means two different pawns are blocked (non-rigidly) up and one of 'pawn' is a single pawn.
+            // So put the single pawn in the block and remove the other pawn from the block. 
+            if (block_idx == -1) {
+                int pawn_to_replace = 0;
+                int pawn_to_be_kept = 0;
+
+                // Find the pawn that needs to be kept in the block
+                int p = pawn;
+                while (p != 0) {
+                    for (short bi = 0; bi < state->num_blocks; bi++)
+                        if (this->find_pawn_in_aggregate(state->blocks[bi].pawns, p % 17)) {
+                            block_idx = bi;
+                            pawn_to_be_kept = p % 17;
+                            break;
+                        }
+                    p /= 17;
+                }
+
+                // Find the new pawn that needs to be put in the block
+                p = pawn;
+                int pawn_to_be_replaced_with = 0;
+                while (p != 0) {
+                    if (!this->find_pawn_in_aggregate(state->blocks[block_idx].pawns, p % 17)) {
+                        pawn_to_be_replaced_with = p % 17;
+                        break;
+                    }
+                    p /= 17;
+                }
+
+                // Find the pawn that needs to be moved out of the block as single pawn
+                p = state->blocks[block_idx].pawns;
+                while (p != 0) {
+                    if (p % 17 != pawn_to_be_kept) {
+                        pawn_to_replace = p % 17;
+                        break;
+                    }
+                    p /= 17;
+                }
+                state->blocks[block_idx].pawns = this->replace_pawn_in_aggregate(state->blocks[block_idx].pawns, pawn_to_replace, pawn_to_be_replaced_with);
+            }
+        }
+
+        // Moving the block forward
+        state->blocks[block_idx].pos = destination;
+        int p = state->blocks[block_idx].pawns;
+        while (p != 0) {
+            this->move_single_pawn(state, state->current_player, p % 17, current_pos, destination);
+            p /= 17;
+        }
+
+        // If destination is base or finale position, break the block into single pawns
+        if (this->stars[destination] == 2 || this->final_pos[destination] == 1)
+            this->remove_block(state, block_idx);
+        // Else if destination is an intermediate star, make the block not rigid
+        else if (this->stars[destination] == 1)
+            state->blocks[block_idx].rigid = false;
+        // Else, make the block rigid
+        else
+            state->blocks[block_idx].rigid = true;
+
+        // If another block pawn of other player is present at destination position (except stars), capture them by breaking the block and sending them back to their respective bases
+        if (this->stars[destination] == 0) 
+            for (short player = 0; player < state->n_players; player++)
+                if (player != current_player && state->player_pos_pawn[player * 93 + destination] > 16)
+                    for (short bi = 0; bi < state->num_blocks; bi++)
+                        if (state->blocks[bi].pos == destination && this->find_pawn_in_aggregate(state->player_pos_pawn[player * 93 + destination], state->blocks[bi].pawns % 17)) {
+                            int p = state->blocks[bi].pawns;
+                            this->remove_block(state, bi);
+                            while (p != 0) {
+                                this->move_single_pawn(state, player, p % 17, destination, p % 17);
+                                p /= 17;
+                            }
+                            state->num_more_throws += 2;
+                            break;
+                        }
+        
+        // If destination is finale and not all other pawns in finale position, give two more throws
+        if (this->final_pos[destination] == 1)
+            for (short pos = 0; pos < 93; pos++)
+                if (pos != destination && state->player_pos_pawn[current_player * 93 + destination] > 0) {
+                    state->num_more_throws += 2;
+                    break;
+                }
+    }
+    return state;
+}
+
+bool LudoModel::check_block_no_moves_player(StatePtr state, short player) {
+    short pos_to_check[] = {0, 68, 29, 42, 55};
+    short colours = this->config->player_colours[player];
+    // For each 'top of home stretch' position, check for heterogeneous block of player
+    while (colours != 0) {
+        short pos = pos_to_check[colours % 5];
+        for (short block_idx = 0; block_idx < state->num_blocks; block_idx++) {
+            bool pawn_of_colour_found = false;
+            bool pawn_diff_colour_found = false;
+            int pawns = state->blocks[block_idx].pawns;
+            while (pawns != 0) {
+                pawn_of_colour_found = pawn_of_colour_found || ((pawns % 17 - 1) / 4 + 1 == colours % 5);
+                pawn_diff_colour_found = pawn_diff_colour_found || ((pawns % 17 - 1) / 4 + 1 != colours % 5);
+                pawns /= 17;
+            }
+            // If a block of the particular pawn is found, it is heterogeneous and rigid in top of home stretch, then the player will have no moves
+            if (state->blocks[block_idx].pos == pos && state->blocks[block_idx].rigid && pawn_of_colour_found && pawn_diff_colour_found)
+                return true;
+        }
+        colours /= 5;
+    }
+    return false;
+}
+
+bool LudoModel::check_available_moves(StatePtr state, short player) {
+    // If a player has a heterogeneous block at the top of home stretch, the game is immediately over for the player
+    if (this->check_block_no_moves_player(state, player))
+        return false;
+    // If there are pawns not at the final position, then the player has moves left 
+    for (short pos = 0; pos < 93; pos++) {
+        if (this->final_pos[pos] != 1 && state->player_pos_pawn[player * 93 + pos] > 0)
+            return true;
+    }
+    return false;
+}
+
+std::vector<StatePtr> LudoModel::generate_next_states(StatePtr state, Move move) {
+    int throw_ = state->dice_roll;
+
+    if(throw_ == 18) {
+        state = state->copy();
+        state->revert(); 
+        state->dice_roll = 0;
+    }
+    else if (throw_ > 12) {
+        state = this->move_pawn(state, throw_ - 12, move.current_pos, move.pawn);
+        state->save();
+        state->dice_roll = 0;
+    }
+    else if (throw_ > 6) {
+        state = this->move_pawn(state, throw_ - 6, move.current_pos, move.pawn);
+        if (throw_ != 12) {
+            state->save();
+            state->dice_roll = 0;
+        }
+    }
+    else {
+        state = this->move_pawn(state, throw_, move.current_pos, move.pawn);
+        if (throw_ != 6) {
+            state->save();
+            state->dice_roll = 0;
+        }
+    }
+    state->last_move_id += 1;
+
+    
+    // Change the turn
+    if (state->num_more_throws == 0) {
+        state->current_player = (state->current_player + 1) % state->n_players;
+        state->dice_roll = 0;
+        state->previous_state = nullptr;
+        state->num_more_throws = 1;
+    }
+    // Check game over or not by evaluating if all other players have completed
+    bool game_over = true;
+    for (short player = 0; player < state->n_players; player++) 
+        if (player != state->current_player && this->check_available_moves(state, player))
+            game_over = false;
+    state->game_over = game_over;
+    state->num_more_throws--;
+
+    std::vector<StatePtr> next_states;
+    for (throw_ = 1; throw_ <= 6; throw_++) {
+        StatePtr next_state = state->copy();
+        next_state->dice_roll += throw_;
+        if (throw_ == 6)
+            next_state->num_more_throws++;
+        next_states.push_back(next_state);
+    }
+    return next_states;
+
+}
+
 std::vector<Move> LudoModel::all_possible_moves(StatePtr state) {
     std::vector<Move> possible_moves;
-    
     int throw_ = state->dice_roll;
     if (throw_ == 18)
         return possible_moves;  // If three 6's are rolled, no moves available
@@ -621,12 +943,55 @@ int main() {
     };
     Ludo game(std::make_shared<GameConfig>(colours_config));
     game.reset();
-    game.state->dice_roll = 6;
     std::cout << game.state->repr();
     std::vector<Move> moves = game.model->all_possible_moves(game.state);
     for (auto move : moves) {
         std::cout << move.repr() << std::endl;
     }
+    std::vector<StatePtr> next_states;
+    if (moves.size() > 0)
+        next_states = game.model->generate_next_states(game.state, moves[0]);
+    else
+        next_states = game.model->generate_next_states(game.state, Move());
+    for (auto next_state: next_states)
+        std::cout << next_state->repr();
+    game.state = next_states[next_states.size()-1];
+    moves = game.model->all_possible_moves(game.state);
+    for (auto move : moves) {
+        std::cout << move.repr() << std::endl;
+    }
+    if (moves.size() > 0)
+        next_states = game.model->generate_next_states(game.state, moves[0]);
+    else
+        next_states = game.model->generate_next_states(game.state, Move());
+    for (auto next_state: next_states)
+        std::cout << next_state->repr();
+    
+    game.state = next_states[next_states.size()-1];
+    moves = game.model->all_possible_moves(game.state);
+    for (auto move : moves) {
+        std::cout << move.repr() << std::endl;
+    }
+    if (moves.size() > 0)
+        next_states = game.model->generate_next_states(game.state, moves[0]);
+    else
+        next_states = game.model->generate_next_states(game.state, Move());
+    for (auto next_state: next_states)
+        std::cout << next_state->repr();
+
+    game.state = next_states[next_states.size()-1];
+    moves = game.model->all_possible_moves(game.state);
+    for (auto move : moves) {
+        std::cout << move.repr() << std::endl;
+    }
+    if (moves.size() > 0)
+        next_states = game.model->generate_next_states(game.state, moves[0]);
+    else
+        next_states = game.model->generate_next_states(game.state, Move());
+    for (auto next_state: next_states)
+        std::cout << next_state->repr();
+    
+
     return 0;
 }
 

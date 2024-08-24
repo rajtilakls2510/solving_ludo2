@@ -27,19 +27,21 @@ public:
     short n_players;    // Number of players
     bool game_over;     // Whether the game is over or not
     short current_player;   // Who is the current player
-    short num_more_moves;   // Number of moves left for the current player
+    short num_more_throws;   // Number of throws left for the current player
     short dice_roll;        // All the dice throws added up from when the turn began
     short last_move_id;     // Move id of the last move taken
     int* player_pos_pawn;   // For each player, for each position, the pawns that are present
     short num_blocks;       // Number of blocks present in the tracks
     Block blocks[16];       // blocks present in the tracks
-    int previous_pawn_pos;  // Stack to hold pawn and their previous position before they were moved. 
+    std::shared_ptr<State> previous_state;  // Memory to hold pawn and their previous position before they were moved. 
     // (This is kept to return the pawns in their original positions when there are 3 dice 6's)
 
     State(short n_players);
     ~State();
     
     std::shared_ptr<State> copy();    // Copies the state
+    void save();        // Saves the current pawns states in 'previous_state'
+    void revert();      // Reverts to the previous state
     std::string repr();
 };
 
@@ -51,6 +53,7 @@ public:
     short current_pos;     // Current position of the pawn
     short destination;          // Destination of the pawn
 
+    Move() : pawn(0), current_pos(0), destination(0) {} // For pass move
     Move(int pawn, short current_pos, short destination) : pawn(pawn), current_pos(current_pos), destination(destination) {};
 
     std::string repr();
@@ -131,7 +134,19 @@ private:
     std::shared_ptr<NextPossiblePawns> find_next_possible_pawns(StatePtr state);
 
     // Given a pawn, it's current position and a dice throw, returns whether the pawn can be moved forward and to what destination
+    // Note: It doesn't take into consideration the dice_roll in the state. It considers throw_ to make the function more reusable.
     std::tuple<bool, short> validate_pawn_move(StatePtr state, short throw_, short current_pos, int pawn);
+
+    // It returns a copy of the next (board) state given a throw_, a pawn (aggregate) and it's current pos
+    // Note: It doesn't take into consideration the dice_roll. It considers throw_ to make the function more reusable
+    // Note2: It doesn't generate the next_throw_ in the next_state. It doesn't generate the next player. It just moves a pawn to a destination and handles capturing, blocking and so on.
+    StatePtr move_pawn(StatePtr state, short throw_, short current_pos, int pawn);
+
+    // Checks whether a heterogeneous block is present at the top of the home stretch from which a player cannot take any move
+    bool check_block_no_moves_player(StatePtr state, short player);
+
+    // Checks whether any moves are available for a given player
+    bool check_available_moves(StatePtr state, short player);
 
 public:
     std::shared_ptr<ThrowGenerator> throw_gen;
