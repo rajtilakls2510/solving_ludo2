@@ -81,6 +81,12 @@ public:
         return distrib(gen);
     }
 
+    int get_randint(int min, int max) {
+        // min (inclusive), max(exclusive)
+        std::uniform_int_distribution<> distrib(min, max-1);
+        return distrib(gen);
+    }
+
 private:
     std::mt19937 gen;
 };
@@ -154,15 +160,17 @@ public:
     LudoModel(std::shared_ptr<GameConfig> config);
     ~LudoModel();
 
+    StatePtr get_initial_state();       // Returns the initial state that the game starts in
     std::vector<StatePtr> generate_next_states(StatePtr state, Move move);   // Returns all next states given current state and move
     std::vector<Move> all_possible_moves(StatePtr state);    // Returns all possible moves for a given state
-    StatePtr get_initial_state();       // Returns the initial state that the game starts in
-
+    bool check_player_completed(StatePtr state, short player);    // Checks whether the player has completed all his moves.
 };
 
 using LudoModelPtr = std::shared_ptr<LudoModel>;
 
 class Ludo {
+// Caution: Not Thread-Safe
+
 public:
     StatePtr state;     // Holds the current state
     LudoModelPtr model;     // Holds the model
@@ -172,7 +180,13 @@ public:
         this->model = std::make_shared<LudoModel>(config);
     }
 
-    void reset();
+    // Resets the game to it's initial state and invalidates all current progress
+    void reset();   
+
+    // Takes a turn on the game. It takes a move and a move id. Move id is state->last_move_id + 1 
+    void turn(Move move, int move_id);  
+    // (The move id is to make sure the correct move is being taken for a current player. In certain web server situations,
+    //  the move id is required to synchronize the requests. Furthermore, it acts as a way to identify the number of turns taken till now.)
 
     ~Ludo () {};
 

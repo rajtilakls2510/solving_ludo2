@@ -428,6 +428,7 @@ int LudoModel::replace_pawn_in_aggregate(int pawns, int pawn_to_replace, int paw
         else {
             p = p * 17 + pawns % 17;
         }
+        pawns /= 17;
     }
     while (p != 0) {
         pawns = pawns * 17 + p % 17;
@@ -681,7 +682,7 @@ StatePtr LudoModel::move_pawn(StatePtr state, short throw_, short current_pos, i
         // If destination is finale and not all other pawns in finale position, give another move
         if (this->final_pos[destination] == 1)
             for (short pos = 0; pos < 93; pos++)
-                if (pos != destination && state->player_pos_pawn[current_player * 93 + destination] > 0) {
+                if (pos != destination && state->player_pos_pawn[current_player * 93 + pos] > 0) {
                     state->num_more_throws += 1;
                     break;
                 }
@@ -729,7 +730,7 @@ StatePtr LudoModel::move_pawn(StatePtr state, short throw_, short current_pos, i
                         }
                     p /= 17;
                 }
-
+                
                 // Find the new pawn that needs to be put in the block
                 p = pawn;
                 int pawn_to_be_replaced_with = 0;
@@ -740,7 +741,7 @@ StatePtr LudoModel::move_pawn(StatePtr state, short throw_, short current_pos, i
                     }
                     p /= 17;
                 }
-
+                
                 // Find the pawn that needs to be moved out of the block as single pawn
                 p = state->blocks[block_idx].pawns;
                 while (p != 0) {
@@ -753,7 +754,7 @@ StatePtr LudoModel::move_pawn(StatePtr state, short throw_, short current_pos, i
                 state->blocks[block_idx].pawns = this->replace_pawn_in_aggregate(state->blocks[block_idx].pawns, pawn_to_replace, pawn_to_be_replaced_with);
             }
         }
-
+        
         // Moving the block forward
         state->blocks[block_idx].pos = destination;
         int p = state->blocks[block_idx].pawns;
@@ -791,7 +792,7 @@ StatePtr LudoModel::move_pawn(StatePtr state, short throw_, short current_pos, i
         // If destination is finale and not all other pawns in finale position, give two more throws
         if (this->final_pos[destination] == 1)
             for (short pos = 0; pos < 93; pos++)
-                if (pos != destination && state->player_pos_pawn[current_player * 93 + destination] > 0) {
+                if (pos != destination && state->player_pos_pawn[current_player * 93 + pos] > 0) {
                     state->num_more_throws += 2;
                     break;
                 }
@@ -837,7 +838,7 @@ bool LudoModel::check_available_moves(StatePtr state, short player) {
 
 std::vector<StatePtr> LudoModel::generate_next_states(StatePtr state, Move move) {
     int throw_ = state->dice_roll;
-
+    
     if(throw_ == 18) {
         state = state->copy();
         state->revert(); 
@@ -862,14 +863,13 @@ std::vector<StatePtr> LudoModel::generate_next_states(StatePtr state, Move move)
             state->dice_roll = 0;
         }
     }
+
     state->last_move_id += 1;
 
-    
     // Change the turn
     if (state->num_more_throws == 0) {
         state->current_player = (state->current_player + 1) % state->n_players;
         state->dice_roll = 0;
-        state->previous_state = nullptr;
         state->num_more_throws = 1;
     }
     // Check game over or not by evaluating if all other players have completed
@@ -884,7 +884,7 @@ std::vector<StatePtr> LudoModel::generate_next_states(StatePtr state, Move move)
     for (throw_ = 1; throw_ <= 6; throw_++) {
         StatePtr next_state = state->copy();
         next_state->dice_roll += throw_;
-        if (throw_ == 6)
+        if (throw_ == 6 && this->all_possible_moves(next_state).size() > 0)
             next_state->num_more_throws++;
         next_states.push_back(next_state);
     }
@@ -920,6 +920,13 @@ std::vector<Move> LudoModel::all_possible_moves(StatePtr state) {
     return possible_moves;
 }
 
+bool LudoModel::check_player_completed(StatePtr state, short player) {
+    for (short pos = 0; pos < 93; pos++)
+        if (this->final_pos[pos] != 1 && state->player_pos_pawn[player * 93 + pos] > 0)
+            return false;
+    return true;
+}
+
 
 LudoModel::~LudoModel() {
     delete[] this->stars;
@@ -935,64 +942,55 @@ void Ludo::reset() {
     state = model->get_initial_state();
 }
 
+void Ludo::turn(Move move, int move_id) {
+    if (move_id == state->last_move_id + 1) {
+        std::vector<StatePtr> next_states = this->model->generate_next_states(state, move);
+        
+        // Randomly selecting a next state
+        int random_state_index = this->model->throw_gen->get_randint(0, next_states.size());
+        this->state = next_states[random_state_index];
 
-int main() {
-    std::vector<std::vector<std::string>> colours_config = {
-        {"red", "yellow"}, 
-        {"blue", "green"}
-    };
-    Ludo game(std::make_shared<GameConfig>(colours_config));
-    game.reset();
-    std::cout << game.state->repr();
-    std::vector<Move> moves = game.model->all_possible_moves(game.state);
-    for (auto move : moves) {
-        std::cout << move.repr() << std::endl;
+        // Find if any player who has completed his game. Make him the winner if the winner is not already set.
+        if (this->winner == -1)
+            for (short player = 0; player < this->state->n_players; player++)
+                if (this->model->check_player_completed(state, player)) {
+                    this->winner = player;
+                    break;
+                }
+        
+        // If the game has ended but there are no winners declared yet, set the current player as winner since the other players have no moves left
+        // Note: This handles the case when both players create heterogeneous blocks that get stuck at top of home stretch
+        if (this->winner == -1 && state->game_over)
+            this->winner = state->current_player;
     }
-    std::vector<StatePtr> next_states;
-    if (moves.size() > 0)
-        next_states = game.model->generate_next_states(game.state, moves[0]);
-    else
-        next_states = game.model->generate_next_states(game.state, Move());
-    for (auto next_state: next_states)
-        std::cout << next_state->repr();
-    game.state = next_states[next_states.size()-1];
-    moves = game.model->all_possible_moves(game.state);
-    for (auto move : moves) {
-        std::cout << move.repr() << std::endl;
-    }
-    if (moves.size() > 0)
-        next_states = game.model->generate_next_states(game.state, moves[0]);
-    else
-        next_states = game.model->generate_next_states(game.state, Move());
-    for (auto next_state: next_states)
-        std::cout << next_state->repr();
-    
-    game.state = next_states[next_states.size()-1];
-    moves = game.model->all_possible_moves(game.state);
-    for (auto move : moves) {
-        std::cout << move.repr() << std::endl;
-    }
-    if (moves.size() > 0)
-        next_states = game.model->generate_next_states(game.state, moves[0]);
-    else
-        next_states = game.model->generate_next_states(game.state, Move());
-    for (auto next_state: next_states)
-        std::cout << next_state->repr();
-
-    game.state = next_states[next_states.size()-1];
-    moves = game.model->all_possible_moves(game.state);
-    for (auto move : moves) {
-        std::cout << move.repr() << std::endl;
-    }
-    if (moves.size() > 0)
-        next_states = game.model->generate_next_states(game.state, moves[0]);
-    else
-        next_states = game.model->generate_next_states(game.state, Move());
-    for (auto next_state: next_states)
-        std::cout << next_state->repr();
-    
-
-    return 0;
 }
+
+// // Engine test
+// int main() {
+//     std::vector<std::vector<std::string>> colours_config = {
+//         {"red", "yellow"}, 
+//         {"blue", "green"}
+//     };
+//     Ludo game(std::make_shared<GameConfig>(colours_config));
+//     game.reset();
+    
+//     while(!game.state->game_over) {
+//         std::cout << game.state->repr();
+//         std::vector<Move> moves = game.model->all_possible_moves(game.state);
+//         std::cout << "Moves: [\n";
+//         for (auto move : moves) {
+//             std::cout << "\t" << move.repr() << std::endl;
+//         }
+//         std::cout << "]\n";
+//         if (moves.size() > 0)
+//             game.turn(moves[game.model->throw_gen->get_randint(0, moves.size())], game.state->last_move_id + 1);
+//         else
+//             game.turn(Move(), game.state->last_move_id + 1);
+//     }
+//     std::cout << game.state->repr();
+//     std::cout << "Winner: " << game.winner << std::endl;
+
+//     return 0;
+// }
 
 #endif
