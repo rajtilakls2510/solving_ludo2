@@ -1,0 +1,43 @@
+syntax="proto3";
+
+package ludo;
+
+message BlockProto {
+    int32 pawns = 1;
+    int32 pos = 2;
+    bool rigid = 3;
+}
+
+message StateProto {
+    int32 n_players = 1;
+    bool game_over = 2;
+    int32 current_player = 3;
+    int32 num_more_throws = 4;
+    int32 dice_roll = 5;
+    int32 last_move_id = 6;
+    repeated int32 player_pos_pawn = 7;
+    int32 num_blocks = 8;
+    repeated BlockProto blocks = 9;
+    repeated int32 previous_player_pos_pawn = 10;
+    int32 previous_num_blocks = 11;
+    repeated BlockProto previous_blocks = 12;
+    bool has_previous = 13;
+}
+
+message MoveProto {
+    int32 pawn = 1;
+    int32 current_pos = 2;
+    int32 destination = 3;
+}
+
+message ConfigProto {
+    int32 n_players = 1;
+    repeated int32 colour_player = 2;
+}
+
+message GameProto {
+    ConfigProto config = 1;
+    repeated StateProto states = 2;
+    repeated MoveProto moves = 3;
+    int32 winner = 4;
+}

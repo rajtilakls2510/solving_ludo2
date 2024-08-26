@@ -78,7 +78,8 @@ std::string GameConfig::repr() {
 }
 
 GameConfig::~GameConfig() {
-    delete[] this->player_colours;
+    if (this->player_colours)
+        delete[] this->player_colours;
 }
 
 // ========================= State methods ====================================

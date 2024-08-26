@@ -65,8 +65,9 @@ class GameConfig {
     // Configuration of the game. For now, contains only the mapping between player and pawn colour.
 public:
     short n_players;
-    short* player_colours;  // Index: player (0-indexed), Value: colour (1-indexed)
+    short* player_colours{nullptr};  // Index: player (0-indexed), Value: colour (1-indexed)
     short colour_player[5];    // Index: colour, Value: Player
+    GameConfig() {};
     GameConfig(std::vector<std::vector<std::string>> player_colour_choices);
     ~GameConfig();
     std::string repr();     // Returns a printable representation of the current configuration
