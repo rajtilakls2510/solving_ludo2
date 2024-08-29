@@ -2,6 +2,8 @@ syntax="proto3";
 
 package ludo;
 
+// ================ Engine related protos ================ 
+
 message BlockProto {
     int32 pawns = 1;
     int32 pos = 2;

@@ -1,5 +1,9 @@
 #include "engine.hpp"
 #include "proto_utils.hpp"
+#include <ludo.pb.h>
+#include <system.pb.h>
+#include <system.grpc.pb.h>
+#include <grpcpp/grpcpp.h>
 #include <iostream>
 #include <fstream>
 #include <chrono>
@@ -72,20 +76,55 @@ int main() {
     // }
     
 
-    // Testing Saved game file
-    std::fstream input("game0.pb", std::ios::in | std::ios::binary);
-    ludo::GameProto game_proto;
-    if (!game_proto.ParseFromIstream(&input))
-        std::cerr << "Couldn't load game file" << std::endl;
+    // // Testing Saved game file
+    // std::fstream input("game0.pb", std::ios::in | std::ios::binary);
+    // ludo::GameProto game_proto;
+    // if (!game_proto.ParseFromIstream(&input))
+    //     std::cerr << "Couldn't load game file" << std::endl;
 
-    std::cout << proto_to_config(game_proto.mutable_config())->repr() << std::endl;
+    // std::cout << proto_to_config(game_proto.mutable_config())->repr() << std::endl;
 
-    for (int m = 0; m < game_proto.moves_size(); m++) {
-        std::cout << proto_to_state(game_proto.mutable_states(m))->repr();
-        std::cout << "Move Taken: " << proto_to_move(game_proto.mutable_moves(m)).repr() << std::endl;
+    // for (int m = 0; m < game_proto.moves_size(); m++) {
+    //     std::cout << proto_to_state(game_proto.mutable_states(m))->repr();
+    //     std::cout << "Move Taken: " << proto_to_move(game_proto.mutable_moves(m)).repr() << std::endl;
+    // }
+    // std::cout << proto_to_state(game_proto.mutable_states(game_proto.moves_size()))->repr();
+    // std::cout << "Winner: " << game_proto.winner() << std::endl;
+
+    // Testing Game Save
+    // fs::path run_dir (argv[1]);
+    auto channel = grpc::CreateChannel("0.0.0.0:50051", grpc::InsecureChannelCredentials());
+    std::unique_ptr<alphaludo::GamesManager::Stub> stub = alphaludo::GamesManager::NewStub(channel);
+
+    {
+    grpc::ClientContext context;
+    alphaludo::FileName request;
+    request.set_file("game0.pb");
+    ::google::protobuf::Empty response;
+    grpc::Status status = stub->Save(&context, request, &response);
+    std::cout << "status : " << status.error_code() << std::endl;
+    std::cout << "status : " << status.error_message() << std::endl;
     }
-    std::cout << proto_to_state(game_proto.mutable_states(game_proto.moves_size()))->repr();
-    std::cout << "Winner: " << game_proto.winner() << std::endl;
+    {
+    grpc::ClientContext context;
+    ::google::protobuf::Empty request;
+    alphaludo::FileNames response;
+    grpc::Status status = stub->GetAll(&context, request, &response);
+    std::cout << "status : " << status.error_code() << std::endl;
+    std::cout << "status : " << status.error_message() << std::endl;
+    for(int i = 0; i < response.files_size(); i++)
+        std::cout << response.files(i) << std::endl;
+    }
+    {
+    grpc::ClientContext context;
+    alphaludo::FileName request;
+    request.set_file("game0.pb");
+    ludo::GameProto response;
+    grpc::Status status = stub->Get(&context, request, &response);
+    std::cout << "status : " << status.error_code() << std::endl;
+    std::cout << "status : " << status.error_message() << std::endl;
+    std::cout << proto_to_state(response.mutable_states(0))->repr();
+    }
 
     return 0;
 }

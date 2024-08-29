@@ -1,0 +1,27 @@
+syntax="proto3";
+
+import "ludo.proto";
+import "google/protobuf/empty.proto";
+
+package alphaludo;
+
+message FileNames {
+    repeated string files = 1;
+}
+
+message FileName {
+    string file = 1;
+}
+
+service GamesManager {
+    rpc Save (FileName) returns (google.protobuf.Empty) {}
+    rpc GetAll (google.protobuf.Empty) returns (FileNames) {}
+    rpc Get (FileName) returns (ludo.GameProto) {}
+}
+
+service PlayerManager {
+    rpc Save (FileName) returns (google.protobuf.Empty) {}
+    rpc GetAll (google.protobuf.Empty) returns (FileNames) {}
+    rpc GetLatest (google.protobuf.Empty) returns (FileName) {}
+    rpc GetRandom (google.protobuf.Empty) returns (FileName) {}
+}

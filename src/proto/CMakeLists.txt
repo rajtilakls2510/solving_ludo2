@@ -4,6 +4,7 @@ find_package(gRPC CONFIG REQUIRED)
 set(PROTO_FILES
     ludo.proto
     service.proto
+    system.proto
 )
 
 add_library(myproto ${PROTO_FILES})
