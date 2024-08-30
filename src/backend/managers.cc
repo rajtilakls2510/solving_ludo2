@@ -17,11 +17,16 @@ public:
     }
 
     // Implement rpc methods
-0
+    
     virtual ::grpc::Status Save(::grpc::ServerContext* context, const ::alphaludo::FileName* request, ::google::protobuf::Empty* response) {
-        if (fs::exists(games_dir / request->file())) { // TODO: Check if already present in manifest
+        if (fs::exists(games_dir / request->file())) { 
             this->manifest_mutex.lock();
-            this->manifest_proto->add_files(request->file());
+            // Check if already present in manifest
+            bool found = false;
+            for (int i = 0; i < this->manifest_proto->files_size(); i++)
+                found = found || this->manifest_proto->files(i) == request->file();
+            if (!found)
+                this->manifest_proto->add_files(request->file());
             this->manifest_mutex.unlock();
 
             return ::grpc::Status::OK;

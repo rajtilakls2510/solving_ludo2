@@ -867,6 +867,9 @@ std::vector<StatePtr> LudoModel::generate_next_states(StatePtr state, Move move)
 
     state->last_move_id += 1;
 
+    if (!this->check_available_moves(state, state->current_player))
+        state->num_more_throws = 0;
+        
     // Change the turn
     if (state->num_more_throws == 0) {
         state->current_player = (state->current_player + 1) % state->n_players;
@@ -885,7 +888,7 @@ std::vector<StatePtr> LudoModel::generate_next_states(StatePtr state, Move move)
     for (throw_ = 1; throw_ <= 6; throw_++) {
         StatePtr next_state = state->copy();
         next_state->dice_roll += throw_;
-        if (throw_ == 6 && this->all_possible_moves(next_state).size() > 0)
+        if (throw_ == 6 && this->check_available_moves(next_state, next_state->current_player))
             next_state->num_more_throws++;
         next_states.push_back(next_state);
     }
