@@ -165,6 +165,8 @@ public:
     std::vector<StatePtr> generate_next_states(StatePtr state, Move move);   // Returns all next states given current state and move
     std::vector<Move> all_possible_moves(StatePtr state);    // Returns all possible moves for a given state
     bool check_player_completed(StatePtr state, short player);    // Checks whether the player has completed all his moves.
+
+    std::shared_ptr<GameConfig> get_config() {return this->config;}
 };
 
 using LudoModelPtr = std::shared_ptr<LudoModel>;

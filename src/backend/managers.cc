@@ -54,6 +54,13 @@ public:
         return grpc::Status(grpc::StatusCode::NOT_FOUND, request->file() + " was not found in games directory");
     }
 
+    void persist() {
+        // Currently, just save the manifest. Later apply logic for old file deletion
+        std::fstream output(this->games_dir / "manifest.pb", std::ios::out | std::ios::trunc | std::ios::binary);
+        if (!this->manifest_proto->SerializeToOstream(&output))
+            std::cerr << "Couldn't save Games manifest" << std::endl; 
+    }
+
 private:
     std::shared_ptr<alphaludo::FileNames> manifest_proto;
     std::mutex manifest_mutex;
@@ -87,7 +94,8 @@ public:
 
     void manage() {
         while (true) {
-            // std::cout << "Managing" << std::endl;
+            if (this->games_manager) 
+                this->games_manager->persist();
             std::this_thread::sleep_for(std::chrono::seconds(2)); // TODO:
         }
     }
