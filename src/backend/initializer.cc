@@ -5,7 +5,11 @@
 #include <filesystem>
 #include <fstream>
 #include <system.pb.h>
+#include <torch/torch.h>
+#include "network.hpp"
+#include "network_utils.hpp"
 namespace fs = std::filesystem;  
+
 
 void check_and_fix_directory(fs::path agent_dir) {
     
@@ -51,7 +55,18 @@ void check_and_fix_directory(fs::path agent_dir) {
     fs::path players_manifest = players_dir / "manifest.pb";
     if (!fs::exists(players_manifest)) {
         std::cout << players_manifest << " does not exist. Creating ..." << std::endl;
+
+        // Create an initial player and save it
+        ValueNet value_net = ValueNet(26, 128, 1024, "cuda", 0.1); // Input_dim: 26, Embed_dim: 128, Value_head_internal_dim: 1024, Dropout: 0.1
+        torch::optim::Adam optimizer(value_net->parameters(), torch::optim::AdamOptions(1e-4)); // Learning rate: 1e-4
+
+        std::string checkpoint_name = get_formatted_time(std::chrono::system_clock::now()) + ".pth";
+        
+        torch::save(value_net, (players_dir / ("network_" + checkpoint_name)).string());
+        torch::save(optimizer, (players_dir / ("optim_" + checkpoint_name)).string());
+
         alphaludo::FileNames players_manifest_proto;
+        players_manifest_proto.add_files(checkpoint_name);
         std::fstream output(players_manifest, std::ios::out | std::ios::trunc | std::ios::binary);
         if (!players_manifest_proto.SerializeToOstream(&output))
             std::cerr << "Couldn't create " << players_manifest << std::endl;
@@ -59,8 +74,6 @@ void check_and_fix_directory(fs::path agent_dir) {
     else 
         std::cout << "Found " << players_manifest << std::endl;
 
-
-    // TODO: Generate an initial network if no network is present
 }
 
 

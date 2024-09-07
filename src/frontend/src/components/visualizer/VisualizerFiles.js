@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAll } from "../../services/gamesManagerService";
+import { getAll, getRandom } from "../../services/gamesManagerService";
 
 const VisualizerFiles = () => {
   const [files, setFiles] = useState([]);

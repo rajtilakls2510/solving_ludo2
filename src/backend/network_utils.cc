@@ -48,4 +48,22 @@ torch::Tensor get_state_tensor_repr(StatePtr state, std::shared_ptr<GameConfig> 
     return repr;
 }
 
+std::string get_formatted_time(const std::chrono::system_clock::time_point& time_point) {
+    // Convert to time_t, which holds the time in seconds
+    std::time_t currentTime = std::chrono::system_clock::to_time_t(time_point);
+    
+    // Convert to tm struct for formatting
+    std::tm* localTime = std::localtime(&currentTime);
+    
+    // Get milliseconds
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                  time_point.time_since_epoch()) % 1000;
+
+    // Use a stringstream for formatted output
+    std::stringstream ss;
+    ss << std::put_time(localTime, "%Y_%b_%d_%H_%M_%S_") << std::setw(3) << std::setfill('0') << ms.count();
+    
+    return ss.str();
+}
+
 #endif

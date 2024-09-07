@@ -21,10 +21,6 @@ const VisualizerBoard = () => {
         { name: "Player 1", colours: ["red", "yellow"] },
         { name: "Player 2", colours: ["green", "blue"] },
       ],
-      // player_colour: [
-      //   { "Player 1": ["red", "yellow"] },
-      //   { "Player 2": ["green", "blue"] },
-      // ],
     },
     game: [
       {
@@ -288,7 +284,7 @@ const VisualizerBoard = () => {
 
     // Parsing config
     let config = { players: [] };
-    const n_players = game_proto.getConfig().getNPlayers();
+    // const n_players = game_proto.getConfig().getNPlayers();
     const colour_player = game_proto.getConfig().getColourPlayerList();
     let players = {};
     for (let colour = 1; colour < colour_player.length; colour++) {
@@ -296,9 +292,18 @@ const VisualizerBoard = () => {
         players[`Player ${colour_player[colour]}`] = [];
       players[`Player ${colour_player[colour]}`].push(mappings.colours[colour]);
     }
-    for (let player_name in players)
-      config.players.push({ name: player_name, colours: players[player_name] });
+    // Get and sort the keys based on the player index
+    const sortedPlayerNames = Object.keys(players).sort((a, b) => {
+      // Extract the number part of the string
+      const indexA = parseInt(a.split(" ")[1], 10);
+      const indexB = parseInt(b.split(" ")[1], 10);
 
+      // Sort based on the number part
+      return indexA - indexB;
+    });
+    sortedPlayerNames.forEach((player_name) => {
+      config.players.push({ name: player_name, colours: players[player_name] });
+    });
     // console.log("config", config);
 
     // Parsing game

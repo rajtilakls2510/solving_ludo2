@@ -25,3 +25,34 @@ service PlayerManager {
     rpc GetLatest (google.protobuf.Empty) returns (FileName) {}
     rpc GetRandom (google.protobuf.Empty) returns (FileName) {}
 }
+
+enum PlayerMode {
+    AI = 0;
+    HUMAN = 1;
+}
+message PlayerConfig {
+    PlayerMode mode = 1;
+    repeated string colours = 2;
+}
+message NewGameConfig {
+    repeated PlayerConfig player_configs = 1;
+}
+message MoveRequest {
+    ludo.MoveProto move = 1;
+    int32 move_id = 2;
+}
+
+message StateResponse {
+    ludo.ConfigProto config = 1;
+    repeated PlayerMode modes = 2;
+    ludo.StateProto state = 3;
+    repeated ludo.MoveProto moves = 4;
+}
+
+service LiveplayManager {
+    rpc CheckRunningGame (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+    rpc Reset (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+    rpc CreateNewGame (NewGameConfig) returns (StateResponse) {}
+    rpc GetCurrentState (google.protobuf.Empty) returns (StateResponse) {}
+    rpc TakeMove (MoveRequest) returns (StateResponse) {}
+}

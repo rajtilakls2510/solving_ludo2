@@ -557,5 +557,362 @@ proto.alphaludo.PlayerManagerPromiseClient.prototype.getRandom =
 };
 
 
+/**
+ * @param {string} hostname
+ * @param {?Object} credentials
+ * @param {?grpc.web.ClientOptions} options
+ * @constructor
+ * @struct
+ * @final
+ */
+proto.alphaludo.LiveplayManagerClient =
+    function(hostname, credentials, options) {
+  if (!options) options = {};
+  options.format = 'text';
+
+  /**
+   * @private @const {!grpc.web.GrpcWebClientBase} The client
+   */
+  this.client_ = new grpc.web.GrpcWebClientBase(options);
+
+  /**
+   * @private @const {string} The hostname
+   */
+  this.hostname_ = hostname.replace(/\/+$/, '');
+
+};
+
+
+/**
+ * @param {string} hostname
+ * @param {?Object} credentials
+ * @param {?grpc.web.ClientOptions} options
+ * @constructor
+ * @struct
+ * @final
+ */
+proto.alphaludo.LiveplayManagerPromiseClient =
+    function(hostname, credentials, options) {
+  if (!options) options = {};
+  options.format = 'text';
+
+  /**
+   * @private @const {!grpc.web.GrpcWebClientBase} The client
+   */
+  this.client_ = new grpc.web.GrpcWebClientBase(options);
+
+  /**
+   * @private @const {string} The hostname
+   */
+  this.hostname_ = hostname.replace(/\/+$/, '');
+
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.google.protobuf.Empty,
+ *   !proto.google.protobuf.Empty>}
+ */
+const methodDescriptor_LiveplayManager_CheckRunningGame = new grpc.web.MethodDescriptor(
+  '/alphaludo.LiveplayManager/CheckRunningGame',
+  grpc.web.MethodType.UNARY,
+  google_protobuf_empty_pb.Empty,
+  google_protobuf_empty_pb.Empty,
+  /**
+   * @param {!proto.google.protobuf.Empty} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  google_protobuf_empty_pb.Empty.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.google.protobuf.Empty} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.RpcError, ?proto.google.protobuf.Empty)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.google.protobuf.Empty>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.alphaludo.LiveplayManagerClient.prototype.checkRunningGame =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/alphaludo.LiveplayManager/CheckRunningGame',
+      request,
+      metadata || {},
+      methodDescriptor_LiveplayManager_CheckRunningGame,
+      callback);
+};
+
+
+/**
+ * @param {!proto.google.protobuf.Empty} request The
+ *     request proto
+ * @param {?Object<string, string>=} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.google.protobuf.Empty>}
+ *     Promise that resolves to the response
+ */
+proto.alphaludo.LiveplayManagerPromiseClient.prototype.checkRunningGame =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/alphaludo.LiveplayManager/CheckRunningGame',
+      request,
+      metadata || {},
+      methodDescriptor_LiveplayManager_CheckRunningGame);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.google.protobuf.Empty,
+ *   !proto.google.protobuf.Empty>}
+ */
+const methodDescriptor_LiveplayManager_Reset = new grpc.web.MethodDescriptor(
+  '/alphaludo.LiveplayManager/Reset',
+  grpc.web.MethodType.UNARY,
+  google_protobuf_empty_pb.Empty,
+  google_protobuf_empty_pb.Empty,
+  /**
+   * @param {!proto.google.protobuf.Empty} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  google_protobuf_empty_pb.Empty.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.google.protobuf.Empty} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.RpcError, ?proto.google.protobuf.Empty)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.google.protobuf.Empty>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.alphaludo.LiveplayManagerClient.prototype.reset =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/alphaludo.LiveplayManager/Reset',
+      request,
+      metadata || {},
+      methodDescriptor_LiveplayManager_Reset,
+      callback);
+};
+
+
+/**
+ * @param {!proto.google.protobuf.Empty} request The
+ *     request proto
+ * @param {?Object<string, string>=} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.google.protobuf.Empty>}
+ *     Promise that resolves to the response
+ */
+proto.alphaludo.LiveplayManagerPromiseClient.prototype.reset =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/alphaludo.LiveplayManager/Reset',
+      request,
+      metadata || {},
+      methodDescriptor_LiveplayManager_Reset);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.alphaludo.NewGameConfig,
+ *   !proto.alphaludo.StateResponse>}
+ */
+const methodDescriptor_LiveplayManager_CreateNewGame = new grpc.web.MethodDescriptor(
+  '/alphaludo.LiveplayManager/CreateNewGame',
+  grpc.web.MethodType.UNARY,
+  proto.alphaludo.NewGameConfig,
+  proto.alphaludo.StateResponse,
+  /**
+   * @param {!proto.alphaludo.NewGameConfig} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.alphaludo.StateResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.alphaludo.NewGameConfig} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.RpcError, ?proto.alphaludo.StateResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.alphaludo.StateResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.alphaludo.LiveplayManagerClient.prototype.createNewGame =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/alphaludo.LiveplayManager/CreateNewGame',
+      request,
+      metadata || {},
+      methodDescriptor_LiveplayManager_CreateNewGame,
+      callback);
+};
+
+
+/**
+ * @param {!proto.alphaludo.NewGameConfig} request The
+ *     request proto
+ * @param {?Object<string, string>=} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.alphaludo.StateResponse>}
+ *     Promise that resolves to the response
+ */
+proto.alphaludo.LiveplayManagerPromiseClient.prototype.createNewGame =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/alphaludo.LiveplayManager/CreateNewGame',
+      request,
+      metadata || {},
+      methodDescriptor_LiveplayManager_CreateNewGame);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.google.protobuf.Empty,
+ *   !proto.alphaludo.StateResponse>}
+ */
+const methodDescriptor_LiveplayManager_GetCurrentState = new grpc.web.MethodDescriptor(
+  '/alphaludo.LiveplayManager/GetCurrentState',
+  grpc.web.MethodType.UNARY,
+  google_protobuf_empty_pb.Empty,
+  proto.alphaludo.StateResponse,
+  /**
+   * @param {!proto.google.protobuf.Empty} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.alphaludo.StateResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.google.protobuf.Empty} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.RpcError, ?proto.alphaludo.StateResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.alphaludo.StateResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.alphaludo.LiveplayManagerClient.prototype.getCurrentState =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/alphaludo.LiveplayManager/GetCurrentState',
+      request,
+      metadata || {},
+      methodDescriptor_LiveplayManager_GetCurrentState,
+      callback);
+};
+
+
+/**
+ * @param {!proto.google.protobuf.Empty} request The
+ *     request proto
+ * @param {?Object<string, string>=} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.alphaludo.StateResponse>}
+ *     Promise that resolves to the response
+ */
+proto.alphaludo.LiveplayManagerPromiseClient.prototype.getCurrentState =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/alphaludo.LiveplayManager/GetCurrentState',
+      request,
+      metadata || {},
+      methodDescriptor_LiveplayManager_GetCurrentState);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.alphaludo.MoveRequest,
+ *   !proto.alphaludo.StateResponse>}
+ */
+const methodDescriptor_LiveplayManager_TakeMove = new grpc.web.MethodDescriptor(
+  '/alphaludo.LiveplayManager/TakeMove',
+  grpc.web.MethodType.UNARY,
+  proto.alphaludo.MoveRequest,
+  proto.alphaludo.StateResponse,
+  /**
+   * @param {!proto.alphaludo.MoveRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.alphaludo.StateResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.alphaludo.MoveRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.RpcError, ?proto.alphaludo.StateResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.alphaludo.StateResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.alphaludo.LiveplayManagerClient.prototype.takeMove =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/alphaludo.LiveplayManager/TakeMove',
+      request,
+      metadata || {},
+      methodDescriptor_LiveplayManager_TakeMove,
+      callback);
+};
+
+
+/**
+ * @param {!proto.alphaludo.MoveRequest} request The
+ *     request proto
+ * @param {?Object<string, string>=} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.alphaludo.StateResponse>}
+ *     Promise that resolves to the response
+ */
+proto.alphaludo.LiveplayManagerPromiseClient.prototype.takeMove =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/alphaludo.LiveplayManager/TakeMove',
+      request,
+      metadata || {},
+      methodDescriptor_LiveplayManager_TakeMove);
+};
+
+
 module.exports = proto.alphaludo;
 

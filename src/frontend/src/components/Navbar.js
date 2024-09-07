@@ -15,12 +15,12 @@ const Navbar = () => {
                 Visualizer
               </Link>
             </li>
-            {/* <li>
+            <li>
               <Link to="/choose_colour_live_play" className="nav-link">
                 Live Play
               </Link>
             </li>
-            <li>
+            {/* <li>
               <Link to="/train_stats" className="nav-link">
                 Train Stats
               </Link>

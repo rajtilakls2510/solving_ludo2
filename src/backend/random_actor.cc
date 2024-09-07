@@ -48,6 +48,7 @@ std::string generate_game(fs::path run_dir) {
     ludo::GameProto game_proto; 
     ludo::ConfigProto* config_proto = game_proto.mutable_config();
     config_to_proto(config, config_proto);
+    int max_moves = 0;
     
     while(!game.state->game_over) {
 
@@ -57,6 +58,7 @@ std::string generate_game(fs::path run_dir) {
         state_to_proto(game.state, state_proto);
 
         std::vector<Move> moves = game.model->all_possible_moves(game.state);
+        max_moves = moves.size() > max_moves ? moves.size() : max_moves;
         // std::cout << "Moves: [\n";
         // for (auto move : moves) {
         //     std::cout << "\t" << move.repr() << std::endl;
@@ -86,7 +88,7 @@ std::string generate_game(fs::path run_dir) {
     std::fstream output(run_dir / "games" / game_filename, std::ios::out | std::ios::trunc | std::ios::binary);
     if (!game_proto.SerializeToOstream(&output))
         std::cerr << "Couldn't save game file" << std::endl;
-    
+    std::cout << "Max Moves: " << max_moves << std::endl;
     std::cout << "Length: " << game.state->last_move_id << std::endl;
     std::cout << "Winner: " << game.winner << std::endl;
     return game_filename;

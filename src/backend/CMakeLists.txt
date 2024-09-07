@@ -8,8 +8,16 @@ set(SRC
     proto_utils.cc
     network_utils.cc
 )
-set(INIT_SRC initializer.cc)
-set(MANAGER_SRC managers.cc)
+set(INIT_SRC 
+    initializer.cc
+    network.cc
+    network_utils.cc    
+)
+set(MANAGER_SRC 
+    managers.cc
+    engine.cc
+    proto_utils.cc
+)
 set(RND_ACTOR_SRC 
     engine.cc 
     proto_utils.cc 
@@ -24,7 +32,7 @@ add_executable(random_actor ${RND_ACTOR_SRC})
 # add_executable(net ${NET_SRC})
 
 target_link_libraries(eng PRIVATE myproto ${TORCH_LIBRARIES})
-target_link_libraries(initializer PRIVATE myproto)
+target_link_libraries(initializer PRIVATE myproto ${TORCH_LIBRARIES})
 target_link_libraries(managers PRIVATE myproto)
 target_link_libraries(random_actor PRIVATE myproto)
 # target_link_libraries(net ${TORCH_LIBRARIES})
