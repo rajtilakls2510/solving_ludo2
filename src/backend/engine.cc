@@ -592,7 +592,7 @@ std::tuple<bool, short> LudoModel::validate_pawn_move(StatePtr state, short thro
         if (this->colour_tracks[pawn1_colour * 57 + pawn1_index + throw_ / 2] != this->colour_tracks[pawn2_colour * 57 + pawn2_index + throw_ / 2])
             return std::make_tuple(false, 0);
         // Block pawns cannot jump over other pawn blocks except when pos is a base star
-        for (short track_index = 0; track_index < 57; track_index++) {
+        for (short track_index = pawn1_index + 1; track_index < pawn1_index + throw_ / 2; track_index++) {
             short pos = this->colour_tracks[pawn1_colour * 57 + track_index];
             if (this->stars[pos] < 2)
                 for (short player = 0; player < state->n_players; player++)
