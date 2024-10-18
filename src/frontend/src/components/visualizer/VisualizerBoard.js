@@ -15,6 +15,7 @@ import Base from "../Base";
 import { getGame } from "../../services/gamesManagerService";
 
 const VisualizerBoard = () => {
+  // Info state contains the whole game. An example of the game format is given as initialization
   const [info, setInfo] = useState({
     config: {
       players: [
@@ -80,6 +81,8 @@ const VisualizerBoard = () => {
     player_won: 2,
   });
   const { file } = useParams();
+
+  // The current board state that is being displayed
   const [boardState, setBoardState] = useState({
     game_state: {
       pawns: {
@@ -137,6 +140,7 @@ const VisualizerBoard = () => {
   });
 
   const convertStateToRepr = (mappings, state_proto) => {
+    // Converts a state_proto to object representation
     let pb = new Array(17).fill(false);
     let blocks = [];
     for (let i = 0; i < state_proto.getNumBlocks(); i++) {
@@ -195,6 +199,7 @@ const VisualizerBoard = () => {
     return state;
   };
   const convertMoveToRepr = (mappings, move_proto) => {
+    // Converts a move_proto to a move object representation
     let move = [];
     let pawn = [];
     if (move_proto.getPawn() !== 0) {
@@ -213,6 +218,7 @@ const VisualizerBoard = () => {
     return move;
   };
   const convertGameToRepr = (game_proto) => {
+    // Converts a game_proto to a game object representation
     const mappings = {
       pawn: [
         "",
@@ -330,6 +336,7 @@ const VisualizerBoard = () => {
   };
 
   useEffect(() => {
+    // Initial useEffect to fetch the game data using the provided file
     const fetchData = async () => {
       try {
         const { status, data } = await getGame(file);
@@ -346,6 +353,7 @@ const VisualizerBoard = () => {
   }, []);
 
   const handleStep = (steps) => {
+    // Handles stepping through the game by displaying the correct board state
     let new_move_id = boardState.move_id + steps;
     if (new_move_id < 0) new_move_id = 0;
     else if (new_move_id >= info.game.length)

@@ -13,6 +13,8 @@ import {
 
 const LiveBoard = () => {
   const navigate = useNavigate();
+
+  // board state contains the current game state along with the configuration of the game and available moves
   const [boardState, setBoardState] = useState({
     config: {
       players: [
@@ -68,6 +70,8 @@ const LiveBoard = () => {
     game_over: false,
     moves: [],
   });
+
+  // Player state contains the current player pawn selection
   const [playerState, setPlayerState] = useState({
     current_move: [],
     selected_pawns: [],
@@ -75,6 +79,7 @@ const LiveBoard = () => {
   });
 
   useEffect(() => {
+    // Checks whether a game is already running or not. If running, display the board state, otherwise redirect to colour chooser page
     const fetchRunningGame = async () => {
       try {
         const { state, data } = await checkRunningGame();
@@ -85,6 +90,7 @@ const LiveBoard = () => {
     fetchRunningGame();
   }, []);
   useInterval(() => {
+    // Periodically fetch the current board state in case playing with AI and the AI has already taken the move
     const fetchCurrentBoard = async () => {
       try {
         const { status, data } = await getCurrentState();
@@ -270,6 +276,7 @@ const LiveBoard = () => {
   };
 
   const applyBoardState = (data) => {
+    // Parses the current game state from protobuffer and converts to object format
     let state_repr = convertStateToRepr(mappings, data.getState());
     let config_repr = convertConfigToRepr(mappings, data.getConfig());
     let modes = data.getModesList().map((mode) => {
@@ -351,6 +358,7 @@ const LiveBoard = () => {
   };
 
   useEffect(() => {
+    // Monitors the current move selection of the player and takes the move
     let available_moves = [...boardState.moves];
     available_moves = available_moves.filter((elem) =>
       checkContainsInArrayUsingPos(elem, playerState.current_move)
@@ -396,6 +404,7 @@ const LiveBoard = () => {
   }, [playerState.current_move]);
 
   useEffect(() => {
+    // Monitors the currently selected pawns of the player and filters the applicable moves
     let available_pos = [];
     if (playerState.selected_pawns.length === 1) {
       for (let i = 0; i < boardState.moves.length; i++) {
@@ -464,6 +473,7 @@ const LiveBoard = () => {
   };
 
   const handleReset = () => {
+    // Reset stops the game and redirects to colour chooser page
     const resetG = async () => {
       try {
         const { status, data } = await resetGame();

@@ -174,7 +174,7 @@ int64_t count_parameters(const torch::nn::ModuleHolder<T>& model) {
 //         auto out = v(input);
 //         auto end = std::chrono::high_resolution_clock::now();
 
-//         std::cout << "\rBatch: " << batch << " Time : " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms";
+//         std::cout << "\rBatch: " << batch << " Time : " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << " us            ";
 //         // std::this_thread::sleep_for(std::chrono::seconds(1));
 //         batch++;
 //     }

@@ -12,6 +12,13 @@
 #include <stdexcept>
 namespace fs = std::filesystem;
 
+/*
+    This file consists of a gRPC server that provides three kinds of services:
+        - GamesManager : Manages the games in the games directory
+        - PlayerManager : Manages the checkpoints in the players directory
+        - LiveplayManager : Provides live play functionality
+*/
+
 
 class Event {
 // Python threading.Event() equivalent class
@@ -54,6 +61,10 @@ private:
 
 
 class GamesManagerService final : public alphaludo::GamesManager::Service {
+/*
+    Handles addition of games in the games directory and (TODO: ) removes outdated games periodically 
+*/
+
 public:
     GamesManagerService(fs::path games_dir) : games_dir(games_dir) {
         this->manifest_proto = std::make_shared<alphaludo::FileNames>();
@@ -81,6 +92,7 @@ public:
     }
 
     virtual ::grpc::Status GetAll(::grpc::ServerContext* context, const ::google::protobuf::Empty* request, ::alphaludo::FileNames* response) {
+        // TODO: Change to get recent 'n' games
         this->manifest_mutex.lock();
         for (int i = 0; i < this->manifest_proto->files_size(); i++) {
             response->add_files(this->manifest_proto->files(i));
@@ -118,6 +130,10 @@ private:
 
 
 class PlayerManagerService final : public alphaludo::PlayerManager::Service {
+/*
+    Handles addition of players in the players directory and (TODO: ) removes outdated players periodically 
+*/
+
 public:
     PlayerManagerService(fs::path players_dir) : players_dir(players_dir), gen(std::random_device{}()) {
         this->manifest_proto = std::make_shared<alphaludo::FileNames>();
@@ -215,6 +231,10 @@ public:
 };
 
 class LiveplayManagerService final : public alphaludo::LiveplayManager::Service {
+
+/*
+    Provides functionality (to a frontend) to play a game live either Human vs Human or Human vs AI.
+*/
 public:
     LiveplayManagerService() : running{false} {
         this->move_event.set();
