@@ -6,6 +6,8 @@
 
 // ============ Creates the Value network torch neural network model using Transformers =================
 
+void print_size(torch::Tensor x);
+
 class MultiHeadAttentionImpl : public torch::nn::Module {
 public:
     MultiHeadAttentionImpl(int embed_dim, int num_heads, std::string device = "cpu", float dropout=0.0);

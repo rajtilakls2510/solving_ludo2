@@ -24,10 +24,10 @@ public:
 
 class State {
 public:
-    short n_players;    // Number of players
-    bool game_over;     // Whether the game is over or not
+    short n_players;        // Number of players
+    bool game_over;         // Whether the game is over or not
     short current_player;   // Who is the current player
-    short num_more_throws;   // Number of throws left for the current player
+    short num_more_throws;  // Number of throws left for the current player
     short dice_roll;        // All the dice throws added up from when the turn began
     short last_move_id;     // Move id of the last move taken
     int* player_pos_pawn;   // For each player, for each position, the pawns that are present
@@ -175,7 +175,7 @@ class Ludo {
 // Caution: Not Thread-Safe
 
 public:
-    StatePtr state;     // Holds the current state
+    StatePtr state;         // Holds the current state
     LudoModelPtr model;     // Holds the model
     short winner{-1};       // Winner of the game when the game has finished (-1: no winner yet)
 

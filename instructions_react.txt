@@ -1,0 +1,10 @@
+Building react frontend:
+Wget and install protoc-gen-grpc-web-vx.y.z-linux-x86_64
+Npm install 
+npm start
+
+Generate grpc react srcs:
+/Path/to/protoc -I=../proto service.proto --js_out=import_style=commonjs,binary:.src/generated --grpc_web_out=import_style=commonjs,mode=grpcwebtext:.src/generated
+If src/generated is not created, mkdir
+If protoc-gen-js not found, npm i -g protoc-gen-js.
+If PATH does not include npm global binaries, "npm config get prefix" and add the path to PATH in bashrc

@@ -7,9 +7,9 @@
 #include <mutex>
 #include "engine.hpp"
 #include "proto_utils.hpp"
-#include <condition_variable>
 #include <random>
 #include <stdexcept>
+#include "threading_utils.hpp"
 namespace fs = std::filesystem;
 
 /*
@@ -19,42 +19,6 @@ namespace fs = std::filesystem;
         - LiveplayManager : Provides live play functionality
 */
 
-
-class Event {
-// Python threading.Event() equivalent class
-public:
-    Event() : flag(false) {}
-
-    // Set the event
-    void set() {
-        std::lock_guard<std::mutex> lock(mtx);
-        flag = true;
-        cv.notify_all();
-    }
-
-    // Clear the event
-    void clear() {
-        std::lock_guard<std::mutex> lock(mtx);
-        flag = false;
-    }
-
-    // Wait until the event is set
-    void wait() {
-        std::unique_lock<std::mutex> lock(mtx);
-        cv.wait(lock, [this] { return flag; });
-    }
-
-    // Wait with timeout
-    bool wait_for(std::chrono::milliseconds timeout) {
-        std::unique_lock<std::mutex> lock(mtx);
-        return cv.wait_for(lock, timeout, [this] { return flag; });
-    }
-
-private:
-    std::mutex mtx;
-    std::condition_variable cv;
-    bool flag;
-};
 
 
 // ============================= Games Manager ================================

@@ -24,15 +24,23 @@ set(RND_ACTOR_SRC
     random_actor.cc
 )
 # set(NET_SRC network.cc)
+set(MCTS_SRC 
+    engine.cc
+    mcts.cc
+    network.cc
+    network_utils.cc
+)
 
 add_executable(eng ${SRC})
 add_executable(initializer ${INIT_SRC})
 add_executable(managers ${MANAGER_SRC})
 add_executable(random_actor ${RND_ACTOR_SRC})
 # add_executable(net ${NET_SRC})
+add_executable(mcts ${MCTS_SRC})
 
 target_link_libraries(eng PRIVATE myproto ${TORCH_LIBRARIES})
 target_link_libraries(initializer PRIVATE myproto ${TORCH_LIBRARIES})
 target_link_libraries(managers PRIVATE myproto)
 target_link_libraries(random_actor PRIVATE myproto)
 # target_link_libraries(net ${TORCH_LIBRARIES})
+target_link_libraries(mcts ${TORCH_LIBRARIES})
