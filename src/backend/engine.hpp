@@ -88,6 +88,11 @@ public:
         return distrib(gen);
     }
 
+    double get_randreal(double min, double max) {
+        std::uniform_real_distribution<> distrib(min, max);
+        return distrib(gen);
+    }
+
 private:
     std::mt19937 gen;
 };

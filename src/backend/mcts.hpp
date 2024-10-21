@@ -27,7 +27,7 @@ class StateNode {
 public:
     StatePtr state;
     MoveNode* parent{nullptr};
-    std::mutex stats_update_mtx;
+    std::mutex expansion_mtx;
     bool expanded{false};
     int num_moves{0};
     MoveNode** moves{nullptr};
@@ -86,7 +86,7 @@ public: // TODO: Change to private after testing
     std::atomic<bool> stop_flag{false};    // Indicator to stop all MCTS activities
     std::shared_ptr<TSQueue<EQElem*>> evaluation_queue;
     ValueNet v_net;
-    int evaluation_batch_size{64};
+    int evaluation_batch_size{32}, sim_pool_size{10};
     double prior_temp{1.0};
 
     // Performs the selection process and returns the left node reached by the process
@@ -117,11 +117,11 @@ public:
     // Performs search for a particular number of simulations in multiple-threads
     void search(int num_simulations);
 
-    // Samples a move from the tree posterior distribution
-    MoveNode* select_next_move(double selection_temp=1.0);
+    // Samples a move from the tree posterior distribution, returns the index of the move in root
+    int select_next_move(double selection_temp=1.0);
 
     // Takes the move in the tree and updates to the next state
-    void take_move(MoveNode* move, StatePtr next_state);
+    void take_move(int move_idx, StatePtr next_state);
 
     ~MCTS() { 
         stop_flag.store(true);

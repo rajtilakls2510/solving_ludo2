@@ -152,15 +152,7 @@ torch::Tensor ValueNetImpl::forward(torch::Tensor x) {
     return x;
 }
 
-template <typename T>
-int64_t count_parameters(const torch::nn::ModuleHolder<T>& model) {
-    int64_t total_params = 0;
-    // Iterate over all the parameters in the model
-    for (const auto& param : model->parameters()) {
-        total_params += param.numel(); // numel() gives the total number of elements in the tensor
-    }
-    return total_params;
-}
+
 
 
 // int main(int argc, char* argv[]) {

@@ -18,11 +18,6 @@ MoveNode::~MoveNode() {
 }
 
 void EQElem::set_result(torch::Tensor result) {
-    // std::cout << "2 States size : ";
-    // print_size(this->states);
-    // std::cout << "2 Results size : ";
-    // print_size(this->results);
-    // std::cout << "Slicing 2 bs: "<< batch_start<<" be: "<< batch_end<<" es: "<< eval_start<<" ee: "<< eval_end<<"\n";
     this->results.index_put_({Slice(eval_start, eval_end)}, result.index({Slice(batch_start, batch_end)}));
     this->last_updated = this->eval_end;
     this->partial_completion_event.set();
@@ -31,8 +26,6 @@ void EQElem::set_result(torch::Tensor result) {
 
 StateNode* MCTS::selection(StateNode* node) {
     while (node->expanded && !node->state->game_over) {
-        // std::cout << "Num moves : " << node->num_moves << ", Num next states : " << node->moves[0]->num_next_states << std::endl;
-        // std::cout << node->state->repr();
         // PUCT
         double* u = new double[node->num_moves]();
         
@@ -65,7 +58,7 @@ StateNode* MCTS::selection(StateNode* node) {
 }
 
 StateNode* MCTS::expansion(StateNode* node) {
-    node->stats_update_mtx.lock();
+    node->expansion_mtx.lock();
 
     // If the node has not been expanded by another thread, expand it
     if (!node->expanded) {
@@ -99,7 +92,7 @@ StateNode* MCTS::expansion(StateNode* node) {
         // LOCK IS NOT RELEASED UNTIL p FOR node IS CALCULATED. THIS IS TO MAKE SURE OTHER THREADS WAIT FOR EXPANSION COMPLETION
     } else {
         // Else, release lock immediately and resume from selection phase
-        node->stats_update_mtx.unlock();
+        node->expansion_mtx.unlock();
         if (!node->state->game_over) {
             node = this->selection(node);
             node = this->expansion(node);
@@ -124,7 +117,6 @@ double MCTS::evaluation(StateNode* node) {
             }
 
         EQElem* eq_elem = new EQElem(states);
-        // std::cout << "State dim : " << states.size(0) << "\n";
         this->evaluation_queue->push(eq_elem);
 
         bool evaluation_complete = false;
@@ -161,7 +153,6 @@ double MCTS::evaluation(StateNode* node) {
 int MCTS::backup(StateNode* node, double ret) {
     // ret value must always be in the context of the owner player.
     int depth = 0;
-    // std::cout << "BACKUP " << node->state->repr();
     while (node->parent) {
 
         MoveNode* parent_action_node = node->parent; 
@@ -170,19 +161,14 @@ int MCTS::backup(StateNode* node, double ret) {
         atomic_add(parent_action_node->w, (player_multiplier * ret) + n_vl);
         parent_action_node->q.store(parent_action_node->w.load() / parent_action_node->n.load());
         
-        // std::cout << "BACKUP " << parent_action_node->parent->state->repr() <<
-        // " Move : " << parent_action_node->move.repr() << " n : " << parent_action_node->n.load() <<
-        // " w : " << parent_action_node->w.load() << " q : " << parent_action_node->q.load() << "\n";  
-        
         node = parent_action_node->parent;
         depth++;
     }
-    // std::cout << "BFFFF\n";
     return depth;
 }
 
 int MCTS::simulation() {
-    auto start = std::chrono::high_resolution_clock::now();
+    // auto start = std::chrono::high_resolution_clock::now();
     StateNode* node = this->root;
     double ret = 0.0;
     int depth = 0;
@@ -192,16 +178,108 @@ int MCTS::simulation() {
         node = this->expansion(node);
     if (!this->stop_flag.load()) {
         ret = this->evaluation(node);
-        node->stats_update_mtx.unlock();
+        node->expansion_mtx.unlock();
     }
     if (!this->stop_flag.load())
         depth = this->backup(node, ret);
-    auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "SimTime : " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms\n";
+    // auto end = std::chrono::high_resolution_clock::now();
+    // std::cout << "SimTime : " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms\n";
     
     return depth;
 }
 
+void MCTS::search(int num_simulations) {
+
+    // Start evaluation thread
+    this->stop_flag.store(false);
+    std::thread eval_thread(nnet_evaluations, std::ref(this->stop_flag), this->evaluation_queue, this->v_net, this->evaluation_batch_size);
+    
+    // Start a thread pool to perform simulations
+    thread_pool simulation_pool(this->sim_pool_size);
+    std::vector<std::future<int>> futures;
+    futures.reserve(num_simulations);
+
+    // Push the simulation jobs in pool
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < num_simulations; i++) {
+        futures.push_back(simulation_pool.push([this](std::atomic<bool>&) { return this->simulation(); }));
+    }
+    
+    // Wait for all jobs to complete
+    int max_depth = 0;
+    for (auto& f: futures) {
+        int depth = f.get();
+        if (depth > max_depth)
+            max_depth = depth;
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+    std::cout << "Time : " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms\n";
+    std::cout << "Max depth : " << max_depth << "\n";
+    
+    // Wait for evaluation thread to stop
+    this->stop_flag.store(true);
+    eval_thread.join();
+    this->evaluation_queue->clear();
+}
+
+int MCTS::select_next_move(double selection_temp) {
+    // This method must be called on an expanded node
+
+    // pi(a|s) = N(s,a)^(1/t) / sum(N(s,a)^(1/t))
+    double sum_n = 0;
+    for (int mi = 0; mi < this->root->num_moves; mi++)
+        sum_n += std::pow(this->root->moves[mi]->n.load(), 1.0/selection_temp);
+    
+    double* pi = new double[this->root->num_moves]();
+    
+    for (int mi = 0; mi < this->root->num_moves; mi++)
+        pi[mi] = std::pow(this->root->moves[mi]->n.load(), 1.0/selection_temp) / sum_n;
+
+    
+    std::cout << "pi : [ ";
+    for(int mi = 0; mi < this->root->num_moves; mi++)
+        std::cout << pi[mi] << ", ";
+    std::cout << "]\n";
+
+    // Sampling from pi(a|s)
+    double random_u = this->model->throw_gen->get_randreal(0.0, 1.0);
+    double sum = 0.0;
+    int selected_mi = 0;
+    for (int mi = 0; mi < this->root->num_moves; mi++) {
+        sum += pi[mi];
+        if (random_u < sum) {
+            selected_mi = mi;
+            break;
+        }
+    }
+
+    std::cout << "Sampled mi: " << selected_mi << std::endl;
+
+    delete[] pi;
+    return selected_mi;
+} 
+
+void MCTS::take_move(int move_idx, StatePtr next_state) {
+    if (!this->root->expanded) {
+        this->expansion(this->root);
+        this->root->expansion_mtx.unlock();
+    }
+
+    // Finding and isolating the next root
+    StateNode* next_root = nullptr; 
+    for (int nsi = 0; nsi < this->root->moves[move_idx]->num_next_states; nsi++) {
+        if (this->root->moves[move_idx]->next_states[nsi]->state->dice_roll == next_state->dice_roll) {
+            next_root = this->root->moves[move_idx]->next_states[nsi];
+            this->root->moves[move_idx]->next_states[nsi] = nullptr;
+            break;
+        }
+    }
+    // Deleting the tree except the sub-tree from next_root
+    delete this->root;
+    this->root = next_root;
+    this->root->parent = nullptr;
+
+}
 
 void nnet_evaluations(
     std::atomic<bool>& stop_flag, 
@@ -237,7 +315,6 @@ void nnet_evaluations(
                 elem->batch_end = batch_end;
                 elem->eval_start = eval_start;
                 elem->eval_end = eval_end;
-                // std::cout << "Slicing 1 bs: "<< batch_start<<" be: "<< batch_end<<" es: "<< eval_start<<" ee: "<< eval_end<<"\n";
                 states.index_put_({Slice(batch_start, batch_end)}, elem->states.index({Slice(eval_start, eval_end)}));
 
                 current_elem_idx = batch_end;
@@ -252,17 +329,11 @@ void nnet_evaluations(
         // Now that a batch of states is created, perform v_net evaluation
         {
             torch::NoGradGuard no_grad; // with torch.no_grad()
-            // std::cout << "1 States size : ";
-            // print_size(states);
             torch::Tensor results = v_net(states);
-            // std::cout << "1 Results size : ";
-            // print_size(results);
             // Set results back to the elems
             for (auto elem : queue_elems_in_evaluation)
                 elem->set_result(results.reshape({-1}));
         }
-        // std::cout << "Evaluating batch...\n"; 
-        
     }
 }
 
@@ -279,55 +350,58 @@ int main(int argc, char* argv[]) {
     game.reset();
 
     ValueNet v_net = ValueNet(26, 128, 1024, "cuda", 0.1);
+    std::cout << "Num parameters: " << count_parameters(v_net) << "\n";
     fs::path players_dir("../run1/players/network_2024_Sep_02_09_33_50_799.pth");
     torch::load(v_net, players_dir.string());
     v_net->eval();
     std::cout << "Loaded v_net.\n";
 
-    MCTS mcts(game.state, game.state->current_player, game.model, 3.0, 3, v_net);
-    std::cout << "Created mcts obj...\n";
+    std::vector<MCTS*> mc_trees;
 
-    std::thread eval_thread(nnet_evaluations, std::ref(mcts.stop_flag), mcts.evaluation_queue, mcts.v_net, mcts.evaluation_batch_size);
-    
-    thread_pool simulation_pool(10);
-    std::vector<std::future<int>> futures;
-    mcts.simulation();
-    auto start = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < 20000; i++) {
-        futures.push_back(simulation_pool.push([&mcts](std::atomic<bool>&) { return mcts.simulation(); }));
+    for (int player = 0; player < game.state->n_players; player++)
+        mc_trees.push_back(new MCTS(game.state, player, game.model, 1.0, 3, v_net));
+
+    std::cout << game.state->repr() << "\n";
+    while(!game.state->game_over) {
+        
+        mc_trees[game.state->current_player]->search(500);
+
+        std::cout << "p : [ ";
+        for(int mi = 0; mi < mc_trees[game.state->current_player]->root->num_moves; mi++)
+            std::cout << mc_trees[game.state->current_player]->root->moves[mi]->p.load() << ", ";
+        std::cout << "]\n";
+
+        std::cout << "n : [ ";
+        for(int mi = 0; mi < mc_trees[game.state->current_player]->root->num_moves; mi++)
+            std::cout << mc_trees[game.state->current_player]->root->moves[mi]->n.load() << ", ";
+        std::cout << "]\n";
+        
+        std::cout << "w : [ ";
+        for(int mi = 0; mi < mc_trees[game.state->current_player]->root->num_moves; mi++)
+            std::cout << mc_trees[game.state->current_player]->root->moves[mi]->w.load() << ", ";
+        std::cout << "]\n";
+
+        std::cout << "q : [ ";
+        for(int mi = 0; mi < mc_trees[game.state->current_player]->root->num_moves; mi++)
+            std::cout << mc_trees[game.state->current_player]->root->moves[mi]->q.load() << ", ";
+        std::cout << "]\n";
+
+        int selected_move_idx = mc_trees[game.state->current_player]->select_next_move();
+        MoveNode* selected_move_node = mc_trees[game.state->current_player]->root->moves[selected_move_idx]; 
+        std::cout << selected_move_node->move.repr() << "\n";
+        game.turn(selected_move_node->move, game.state->last_move_id+1);
+
+        for (int player = 0; player < game.state->n_players; player++) 
+            mc_trees[player]->take_move(selected_move_idx, game.state);
+
+        std::cout << game.state->repr() << "\n";
     }
-    
-    int max_depth = 0;
-    for (auto& f: futures) {
-        int depth = f.get();
-        if (depth > max_depth)
-            max_depth = depth;
-    }
-    auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "Time : " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms\n";
-    std::cout << "Max depth : " << max_depth << "\n";
-    // mcts.expansion(mcts.root);
-    // StateNode* leaf_node = mcts.selection(mcts.root);
-    // // StateNode* leaf_node2 = mcts.selection(mcts.root);
-    // double ret = mcts.evaluation(mcts.root);
-    // mcts.root->stats_update_mtx.unlock();
-
-    // std::cout << mcts.root->state->repr();
-    // std::cout << leaf_node->state->repr();
-    // std::cout << "Ret : " << ret << "\n";
-    // // std::cout << leaf_node2->state->repr();
 
 
+    for (int player = 0; player < game.state->n_players; player++)
+        delete mc_trees[player];
 
-    // mcts.backup(leaf_node, ret);
-    // mcts.backup(leaf_node2, 3.0);
 
-    // std::this_thread::sleep_for(std::chrono::seconds(5));
-    
-    mcts.stop_flag.store(true);
-    std::cout << "Stop called\n";
-
-    eval_thread.join();
     return 0;
 }
 

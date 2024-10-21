@@ -8,6 +8,16 @@
 
 void print_size(torch::Tensor x);
 
+template <typename T>
+int64_t count_parameters(const torch::nn::ModuleHolder<T>& model) {
+    int64_t total_params = 0;
+    // Iterate over all the parameters in the model
+    for (const auto& param : model->parameters()) {
+        total_params += param.numel(); // numel() gives the total number of elements in the tensor
+    }
+    return total_params;
+}
+
 class MultiHeadAttentionImpl : public torch::nn::Module {
 public:
     MultiHeadAttentionImpl(int embed_dim, int num_heads, std::string device = "cpu", float dropout=0.0);
