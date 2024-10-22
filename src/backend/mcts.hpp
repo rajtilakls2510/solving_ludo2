@@ -52,13 +52,7 @@ public:
     ~MoveNode();
 };
 
-void atomic_add(std::atomic<double>& atomic_var, double value) {
-    double old_value = atomic_var.load();  // Step 1: Load the current value
-    while (!atomic_var.compare_exchange_weak(old_value, old_value + value)) {
-        // Step 2: Retry if another thread has changed the value
-        // The loop retries loading the current value and attempts the exchange
-    }
-}
+void atomic_add(std::atomic<double>& atomic_var, double value);
 
 class EQElem {
 public:

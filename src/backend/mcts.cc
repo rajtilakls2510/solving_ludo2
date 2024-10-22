@@ -3,6 +3,14 @@
 
 #include "mcts.hpp"
 
+void atomic_add(std::atomic<double>& atomic_var, double value) {
+    double old_value = atomic_var.load();  // Step 1: Load the current value
+    while (!atomic_var.compare_exchange_weak(old_value, old_value + value)) {
+        // Step 2: Retry if another thread has changed the value
+        // The loop retries loading the current value and attempts the exchange
+    }
+}
+
 StateNode::~StateNode() {
     if (this->expanded) {
         for (int mi = 0; mi < this->num_moves; mi++)
@@ -213,8 +221,8 @@ void MCTS::search(int num_simulations) {
             max_depth = depth;
     }
     auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "Time : " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms\n";
-    std::cout << "Max depth : " << max_depth << "\n";
+    // std::cout << "Time : " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms\n";
+    // std::cout << "Max depth : " << max_depth << "\n";
     
     // Wait for evaluation thread to stop
     this->stop_flag.store(true);
@@ -236,10 +244,10 @@ int MCTS::select_next_move(double selection_temp) {
         pi[mi] = std::pow(this->root->moves[mi]->n.load(), 1.0/selection_temp) / sum_n;
 
     
-    std::cout << "pi : [ ";
-    for(int mi = 0; mi < this->root->num_moves; mi++)
-        std::cout << pi[mi] << ", ";
-    std::cout << "]\n";
+    // std::cout << "pi : [ ";
+    // for(int mi = 0; mi < this->root->num_moves; mi++)
+    //     std::cout << pi[mi] << ", ";
+    // std::cout << "]\n";
 
     // Sampling from pi(a|s)
     double random_u = this->model->throw_gen->get_randreal(0.0, 1.0);
@@ -253,7 +261,7 @@ int MCTS::select_next_move(double selection_temp) {
         }
     }
 
-    std::cout << "Sampled mi: " << selected_mi << std::endl;
+    // std::cout << "Sampled mi: " << selected_mi << std::endl;
 
     delete[] pi;
     return selected_mi;
@@ -321,7 +329,7 @@ void nnet_evaluations(
 
             } else {
                 // Timeout occured
-                std::cout << "Timeout cei: " << current_elem_idx << "\n";  
+                // std::cout << "Timeout cei: " << current_elem_idx << "\n";  
                 break;
             }
         }
@@ -339,70 +347,70 @@ void nnet_evaluations(
 
 
 // MCTS Test
-int main(int argc, char* argv[]) {
+// int main(int argc, char* argv[]) {
     
-    std::vector<std::vector<std::string>> colours_config = {
-        {"red", "yellow"}, 
-        {"blue", "green"}
-    };
-    std::shared_ptr<GameConfig> config = std::make_shared<GameConfig>(colours_config);
-    Ludo game(config);
-    game.reset();
+//     std::vector<std::vector<std::string>> colours_config = {
+//         {"red", "yellow"}, 
+//         {"blue", "green"}
+//     };
+//     std::shared_ptr<GameConfig> config = std::make_shared<GameConfig>(colours_config);
+//     Ludo game(config);
+//     game.reset();
 
-    ValueNet v_net = ValueNet(26, 128, 1024, "cuda", 0.1);
-    std::cout << "Num parameters: " << count_parameters(v_net) << "\n";
-    fs::path players_dir("../run1/players/network_2024_Sep_02_09_33_50_799.pth");
-    torch::load(v_net, players_dir.string());
-    v_net->eval();
-    std::cout << "Loaded v_net.\n";
+//     ValueNet v_net = ValueNet(26, 128, 1024, "cuda", 0.1);
+//     std::cout << "Num parameters: " << count_parameters(v_net) << "\n";
+//     fs::path players_dir("../run1/players/network_2024_Sep_02_09_33_50_799.pth");
+//     torch::load(v_net, players_dir.string());
+//     v_net->eval();
+//     std::cout << "Loaded v_net.\n";
 
-    std::vector<MCTS*> mc_trees;
+//     std::vector<MCTS*> mc_trees;
 
-    for (int player = 0; player < game.state->n_players; player++)
-        mc_trees.push_back(new MCTS(game.state, player, game.model, 1.0, 3, v_net));
+//     for (int player = 0; player < game.state->n_players; player++)
+//         mc_trees.push_back(new MCTS(game.state, player, game.model, 1.0, 3, v_net));
 
-    std::cout << game.state->repr() << "\n";
-    while(!game.state->game_over) {
+//     std::cout << game.state->repr() << "\n";
+//     while(!game.state->game_over) {
         
-        mc_trees[game.state->current_player]->search(500);
+//         mc_trees[game.state->current_player]->search(500);
 
-        std::cout << "p : [ ";
-        for(int mi = 0; mi < mc_trees[game.state->current_player]->root->num_moves; mi++)
-            std::cout << mc_trees[game.state->current_player]->root->moves[mi]->p.load() << ", ";
-        std::cout << "]\n";
+//         std::cout << "p : [ ";
+//         for(int mi = 0; mi < mc_trees[game.state->current_player]->root->num_moves; mi++)
+//             std::cout << mc_trees[game.state->current_player]->root->moves[mi]->p.load() << ", ";
+//         std::cout << "]\n";
 
-        std::cout << "n : [ ";
-        for(int mi = 0; mi < mc_trees[game.state->current_player]->root->num_moves; mi++)
-            std::cout << mc_trees[game.state->current_player]->root->moves[mi]->n.load() << ", ";
-        std::cout << "]\n";
+//         std::cout << "n : [ ";
+//         for(int mi = 0; mi < mc_trees[game.state->current_player]->root->num_moves; mi++)
+//             std::cout << mc_trees[game.state->current_player]->root->moves[mi]->n.load() << ", ";
+//         std::cout << "]\n";
         
-        std::cout << "w : [ ";
-        for(int mi = 0; mi < mc_trees[game.state->current_player]->root->num_moves; mi++)
-            std::cout << mc_trees[game.state->current_player]->root->moves[mi]->w.load() << ", ";
-        std::cout << "]\n";
+//         std::cout << "w : [ ";
+//         for(int mi = 0; mi < mc_trees[game.state->current_player]->root->num_moves; mi++)
+//             std::cout << mc_trees[game.state->current_player]->root->moves[mi]->w.load() << ", ";
+//         std::cout << "]\n";
 
-        std::cout << "q : [ ";
-        for(int mi = 0; mi < mc_trees[game.state->current_player]->root->num_moves; mi++)
-            std::cout << mc_trees[game.state->current_player]->root->moves[mi]->q.load() << ", ";
-        std::cout << "]\n";
+//         std::cout << "q : [ ";
+//         for(int mi = 0; mi < mc_trees[game.state->current_player]->root->num_moves; mi++)
+//             std::cout << mc_trees[game.state->current_player]->root->moves[mi]->q.load() << ", ";
+//         std::cout << "]\n";
 
-        int selected_move_idx = mc_trees[game.state->current_player]->select_next_move();
-        MoveNode* selected_move_node = mc_trees[game.state->current_player]->root->moves[selected_move_idx]; 
-        std::cout << selected_move_node->move.repr() << "\n";
-        game.turn(selected_move_node->move, game.state->last_move_id+1);
+//         int selected_move_idx = mc_trees[game.state->current_player]->select_next_move();
+//         MoveNode* selected_move_node = mc_trees[game.state->current_player]->root->moves[selected_move_idx]; 
+//         std::cout << selected_move_node->move.repr() << "\n";
+//         game.turn(selected_move_node->move, game.state->last_move_id+1);
 
-        for (int player = 0; player < game.state->n_players; player++) 
-            mc_trees[player]->take_move(selected_move_idx, game.state);
+//         for (int player = 0; player < game.state->n_players; player++) 
+//             mc_trees[player]->take_move(selected_move_idx, game.state);
 
-        std::cout << game.state->repr() << "\n";
-    }
-
-
-    for (int player = 0; player < game.state->n_players; player++)
-        delete mc_trees[player];
+//         std::cout << game.state->repr() << "\n";
+//     }
 
 
-    return 0;
-}
+//     for (int player = 0; player < game.state->n_players; player++)
+//         delete mc_trees[player];
+
+
+//     return 0;
+// }
 
 #endif
