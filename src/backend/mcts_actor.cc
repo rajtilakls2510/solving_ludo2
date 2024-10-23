@@ -23,7 +23,7 @@
 namespace fs = std::filesystem;
 using namespace std::chrono;
 
-
+// TODO: Add selection temp schedule
 void generate_game(
     fs::path run_dir, 
     std::mt19937& g, 
@@ -92,11 +92,29 @@ void generate_game(
         state_to_proto(game.state, state_proto);
 
         // Search
-        mc_trees[game.state->current_player]->search(100);
+        MCTS* mcts = mc_trees[game.state->current_player]; 
+        mcts->search(100);
+
+        // Logging move statistics
+
+        // pi(a|s) = N(s,a)^(1/t) / sum(N(s,a)^(1/t))
+        double sum_n = 0;
+        for (int mi = 0; mi < mcts->root->num_moves; mi++)
+            sum_n += std::pow(mcts->root->moves[mi]->n.load(), 1.0);
+
+        ludo::StatsProto* stats_proto = game_proto.add_stats();
+        for (int mi = 0; mi < mcts->root->num_moves; mi++) {
+            stats_proto->add_p((float) mcts->root->moves[mi]->p.load());
+            stats_proto->add_n(mcts->root->moves[mi]->n.load());
+            stats_proto->add_q((float) mcts->root->moves[mi]->q.load());
+            stats_proto->add_pi((float) std::pow(mcts->root->moves[mi]->n.load(), 1.0) / sum_n);
+            ludo::MoveProto* move_proto = stats_proto->add_moves();
+            move_to_proto(mcts->root->moves[mi]->move, move_proto);
+        }
 
         // Select move
-        int selected_move_idx = mc_trees[game.state->current_player]->select_next_move();
-        MoveNode* selected_move_node = mc_trees[game.state->current_player]->root->moves[selected_move_idx]; 
+        int selected_move_idx = mcts->select_next_move();
+        MoveNode* selected_move_node = mcts->root->moves[selected_move_idx]; 
 
         // Logging move
         ludo::MoveProto* move_proto = game_proto.add_moves();

@@ -37,9 +37,18 @@ message ConfigProto {
     repeated int32 colour_player = 2;
 }
 
+message StatsProto {
+    repeated float p = 1;
+    repeated int32 n = 2;
+    repeated float q = 3;
+    repeated float pi = 4;
+    repeated MoveProto moves = 5;
+}
+
 message GameProto {
     ConfigProto config = 1;
     repeated StateProto states = 2;
     repeated MoveProto moves = 3;
     int32 winner = 4;
+    repeated StatsProto stats = 5;
 }

@@ -30,7 +30,7 @@ class GamesManagerService final : public alphaludo::GamesManager::Service {
 */
 
 public:
-    GamesManagerService(fs::path games_dir) : games_dir(games_dir) {
+    GamesManagerService(fs::path games_dir, int max_games) : games_dir(games_dir), max_games(max_games) {
         this->manifest_proto = std::make_shared<alphaludo::FileNames>();
         std::fstream input(games_dir / "manifest.pb", std::ios::in | std::ios::binary);
         if (!this->manifest_proto->ParseFromIstream(&input))
@@ -77,7 +77,24 @@ public:
     }
 
     void persist() {
-        // TODO: Currently, just save the manifest. Later apply logic for old file deletion
+        // Delete obsolete files
+        if (this->manifest_proto->files_size() > max_games) {
+            std::vector<std::string> files_;
+            for (int i = 0; i < this->manifest_proto->files_size(); i++)
+                files_.push_back(this->manifest_proto->files(i));
+            
+            int num_files_to_delete = this->manifest_proto->files_size() - max_games;
+            for (int i = 0; i < num_files_to_delete; i++) {
+                if (fs::exists(this->games_dir / files_[i])) {
+                    try {
+                        fs::remove(this->games_dir / files_[i]);
+                    } catch (const fs::filesystem_error& e) {}
+                }
+            }   
+            this->manifest_proto->clear_files();
+            for (int i = 0; i < max_games; i++)
+                this->manifest_proto->add_files(files_[i + num_files_to_delete]);
+        }
         std::fstream output(this->games_dir / "manifest.pb", std::ios::out | std::ios::trunc | std::ios::binary);
         if (!this->manifest_proto->SerializeToOstream(&output))
             std::cerr << "Couldn't save players manifest" << std::endl; 
@@ -87,6 +104,7 @@ private:
     std::shared_ptr<alphaludo::FileNames> manifest_proto;
     std::mutex manifest_mutex;
     fs::path games_dir;
+    int max_games;
 };
 
 
@@ -99,7 +117,7 @@ class PlayerManagerService final : public alphaludo::PlayerManager::Service {
 */
 
 public:
-    PlayerManagerService(fs::path players_dir) : players_dir(players_dir), gen(std::random_device{}()) {
+    PlayerManagerService(fs::path players_dir, int max_players) : players_dir(players_dir), gen(std::random_device{}()), max_players(max_players) {
         this->manifest_proto = std::make_shared<alphaludo::FileNames>();
         std::fstream input(players_dir / "manifest.pb", std::ios::in | std::ios::binary);
         if (!this->manifest_proto->ParseFromIstream(&input))
@@ -158,7 +176,25 @@ public:
     }
 
     void persist() {
-        // TODO: Currently, just save the manifest. Later apply logic for old file deletion
+        // Delete obsolete files
+        if (this->manifest_proto->files_size() > max_players) {
+            std::vector<std::string> files_;
+            for (int i = 0; i < this->manifest_proto->files_size(); i++)
+                files_.push_back(this->manifest_proto->files(i));
+            
+            int num_files_to_delete = this->manifest_proto->files_size() - max_players;
+            for (int i = 0; i < num_files_to_delete; i++) {
+                if (fs::exists(this->players_dir / files_[i])) {
+                    try {
+                        fs::remove(this->players_dir / files_[i]);
+                    } catch (const fs::filesystem_error& e) {}
+                }
+            }   
+            this->manifest_proto->clear_files();
+            for (int i = 0; i < max_players; i++)
+                this->manifest_proto->add_files(files_[i + num_files_to_delete]);
+
+        }
         std::fstream output(this->players_dir / "manifest.pb", std::ios::out | std::ios::trunc | std::ios::binary);
         if (!this->manifest_proto->SerializeToOstream(&output))
             std::cerr << "Couldn't save players manifest" << std::endl; 
@@ -168,6 +204,7 @@ private:
     std::mutex manifest_mutex;
     fs::path players_dir;
     std::mt19937 gen;
+    int max_players;
 };
 
 
@@ -343,14 +380,14 @@ private:
 
 class Manager {
 public:
-    Manager(const std::string& server_addr, fs::path run_dir) {
-        server_thread = std::thread([this, server_addr, run_dir] () mutable {
+    Manager(const std::string& server_addr, fs::path run_dir, int max_games, int max_players) {
+        server_thread = std::thread([this, server_addr, run_dir, max_games, max_players] () mutable {
             
             // Starting gRPC server
             grpc::ServerBuilder builder;
             builder.AddListeningPort(server_addr, grpc::InsecureServerCredentials());
-            this->games_manager = new GamesManagerService(run_dir / "games");
-            this->player_manager = new PlayerManagerService(run_dir / "players");
+            this->games_manager = new GamesManagerService(run_dir / "games", max_games);
+            this->player_manager = new PlayerManagerService(run_dir / "players", max_players);
             this->live_manager = new LiveplayManagerService();
 
             builder.RegisterService(this->games_manager);
@@ -391,7 +428,7 @@ private:
 int main(int argc, char *argv[]) {
     if (argc > 1) {
         fs::path run_dir (argv[1]);
-        Manager manager ("0.0.0.0:50051", run_dir);
+        Manager manager ("0.0.0.0:50051", run_dir, 180, 10);
         manager.manage();
     }
     else 

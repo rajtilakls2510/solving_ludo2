@@ -217,6 +217,21 @@ const VisualizerBoard = () => {
     }
     return move;
   };
+
+  const convertStatsToRepr = (mappings, stats_proto) => {
+    let moves = [];
+    for (let i = 0; i < stats_proto.getMovesList().length; i++) {
+      moves.push({
+        move: convertMoveToRepr(mappings, stats_proto.getMovesList()[i]),
+        p: stats_proto.getPList()[i],
+        n: stats_proto.getNList()[i],
+        q: stats_proto.getQList()[i],
+        pi: stats_proto.getPiList()[i],
+      });
+    }
+    return moves;
+  };
+
   const convertGameToRepr = (game_proto) => {
     // Converts a game_proto to a game object representation
     const mappings = {
@@ -319,7 +334,10 @@ const VisualizerBoard = () => {
         game_state: convertStateToRepr(mappings, game_proto.getStatesList()[i]),
         move_id: i,
         move: convertMoveToRepr(mappings, game_proto.getMovesList()[i]),
-        top_moves: [],
+        top_moves:
+          game_proto.getStatsList().length > 0
+            ? convertStatsToRepr(mappings, game_proto.getStatsList()[i])
+            : [],
       });
     }
     game.push({
@@ -647,16 +665,20 @@ const VisualizerBoard = () => {
             <span> {JSON.stringify(boardState.move)}</span>
           </div>
           <div className="top-moves-container">
-            <h3>Top Moves</h3>
-            <h3>Probability</h3>
-            <h3>Value</h3>
+            <h4>Moves</h4>
+            <h4>P</h4>
+            <h4>N</h4>
+            <h4>Q</h4>
+            <h4>Pi</h4>
             {boardState.top_moves &&
               boardState.top_moves.map((elem, index) => {
                 return (
                   <>
                     <span>{JSON.stringify(elem.move)}</span>
-                    <span>{elem.prob}</span>
-                    <span>{elem.value}</span>
+                    <span>{elem.p}</span>
+                    <span>{elem.n}</span>
+                    <span>{elem.q}</span>
+                    <span>{elem.pi}</span>
                   </>
                 );
               })}

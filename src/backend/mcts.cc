@@ -243,12 +243,6 @@ int MCTS::select_next_move(double selection_temp) {
     for (int mi = 0; mi < this->root->num_moves; mi++)
         pi[mi] = std::pow(this->root->moves[mi]->n.load(), 1.0/selection_temp) / sum_n;
 
-    
-    // std::cout << "pi : [ ";
-    // for(int mi = 0; mi < this->root->num_moves; mi++)
-    //     std::cout << pi[mi] << ", ";
-    // std::cout << "]\n";
-
     // Sampling from pi(a|s)
     double random_u = this->model->throw_gen->get_randreal(0.0, 1.0);
     double sum = 0.0;
@@ -260,8 +254,6 @@ int MCTS::select_next_move(double selection_temp) {
             break;
         }
     }
-
-    // std::cout << "Sampled mi: " << selected_mi << std::endl;
 
     delete[] pi;
     return selected_mi;
