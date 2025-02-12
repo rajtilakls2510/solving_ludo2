@@ -38,6 +38,13 @@ set(MCTS_ACTOR_SRC
     proto_utils.cc
     mcts_actor.cc
 )
+set(LEARNER_SRC
+    engine.cc
+    learner.cc
+    network.cc
+    network_utils.cc
+    proto_utils.cc
+)
 
 add_executable(eng ${SRC})
 add_executable(initializer ${INIT_SRC})
@@ -46,6 +53,7 @@ add_executable(random_actor ${RND_ACTOR_SRC})
 # add_executable(net ${NET_SRC})
 # add_executable(mcts ${MCTS_SRC})
 add_executable(mcts_actor ${MCTS_ACTOR_SRC})
+add_executable(learner ${LEARNER_SRC})
 
 target_link_libraries(eng PRIVATE myproto ${TORCH_LIBRARIES})
 target_link_libraries(initializer PRIVATE myproto ${TORCH_LIBRARIES})
@@ -54,3 +62,4 @@ target_link_libraries(random_actor PRIVATE myproto)
 # target_link_libraries(net ${TORCH_LIBRARIES})
 # target_link_libraries(mcts ${TORCH_LIBRARIES})
 target_link_libraries(mcts_actor PRIVATE myproto ${TORCH_LIBRARIES})
+target_link_libraries(learner PRIVATE myproto ${TORCH_LIBRARIES})

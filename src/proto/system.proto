@@ -16,6 +16,7 @@ message FileName {
 service GamesManager {
     rpc Save (FileName) returns (google.protobuf.Empty) {}
     rpc GetAll (google.protobuf.Empty) returns (FileNames) {}
+    rpc GetRandom (google.protobuf.Empty) returns (FileName) {}
     rpc Get (FileName) returns (ludo.GameProto) {}
 }
 

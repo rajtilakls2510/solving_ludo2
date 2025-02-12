@@ -78,6 +78,7 @@ void generate_game(
     std::vector<MCTS*> mc_trees;
     for (int i = 0; i < colours_config.size(); i++) {
         mc_trees.push_back(new MCTS(game.state, /*player=*/i, game.model, 1.0, 3, v_nets[i]));
+        // mc_trees[i]->sim_pool_size = 20;
     }
 
     // Logging
@@ -158,7 +159,7 @@ void generate_game(
 
 void generate_games(fs::path run_dir) {
     
-    std::cout << "Connecting to Game Manager..." << std::endl;
+    std::cout << "Connecting to Manager..." << std::endl;
     auto channel = grpc::CreateChannel("0.0.0.0:50051", grpc::InsecureChannelCredentials());
     std::unique_ptr<alphaludo::GamesManager::Stub> games_stub = alphaludo::GamesManager::NewStub(channel);
     std::unique_ptr<alphaludo::PlayerManager::Stub> players_stub = alphaludo::PlayerManager::NewStub(channel);

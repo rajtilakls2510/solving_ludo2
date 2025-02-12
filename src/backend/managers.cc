@@ -30,7 +30,7 @@ class GamesManagerService final : public alphaludo::GamesManager::Service {
 */
 
 public:
-    GamesManagerService(fs::path games_dir, int max_games) : games_dir(games_dir), max_games(max_games) {
+    GamesManagerService(fs::path games_dir, int max_games) : games_dir(games_dir), gen(std::random_device{}()), max_games(max_games) {
         this->manifest_proto = std::make_shared<alphaludo::FileNames>();
         std::fstream input(games_dir / "manifest.pb", std::ios::in | std::ios::binary);
         if (!this->manifest_proto->ParseFromIstream(&input))
@@ -63,6 +63,19 @@ public:
         }
         this->manifest_mutex.unlock();
         return ::grpc::Status::OK;
+    }
+
+    virtual ::grpc::Status GetRandom(::grpc::ServerContext* context, const ::google::protobuf::Empty* request, ::alphaludo::FileName* response) {
+        this->manifest_mutex.lock();
+        if (this->manifest_proto->files_size() > 0) {
+            std::uniform_int_distribution<> distrib(0, this->manifest_proto->files_size()-1);
+            int chosen_index = distrib(this->gen);
+            response->set_file(this->manifest_proto->files(chosen_index));
+            this->manifest_mutex.unlock();
+            return ::grpc::Status::OK;
+        }
+        this->manifest_mutex.unlock();
+        return grpc::Status(grpc::StatusCode::UNAVAILABLE, "No game saved!");
     }
     
     virtual ::grpc::Status Get(::grpc::ServerContext* context, const ::alphaludo::FileName* request, ::ludo::GameProto* response) {
@@ -104,6 +117,7 @@ private:
     std::shared_ptr<alphaludo::FileNames> manifest_proto;
     std::mutex manifest_mutex;
     fs::path games_dir;
+    std::mt19937 gen;
     int max_games;
 };
 

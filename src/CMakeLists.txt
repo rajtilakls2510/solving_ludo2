@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
-project(solving_ludo2)
+project(solving_ludo2 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
